@@ -1,3 +1,4 @@
+import json
 import logging
 from dataclasses import dataclass, field
 from threading import Timer
@@ -47,7 +48,8 @@ class AnkamaLauncherHandler:
             case "autoConnectType":
                 return '"2"'
             case "language":
-                return '"fr"'
+                session = self.infos_by_hash.get(hash)
+                return json.dumps(session.language if session is not None else "fr")
             case "connectionPort":
                 return '"5555"'
         raise NotImplementedError

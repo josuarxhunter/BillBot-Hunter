@@ -25,6 +25,7 @@ from qfluentwidgets.components.widgets.tool_tip import ToolTipFilter
 
 from src.consts import RESOURCE_FOLDER
 from src.core.signals.bot_signals import BotSignals
+from src.gui.i18n import tr
 
 
 class SidebarItem(NavigationWidget):
@@ -116,7 +117,7 @@ class SidebarItem(NavigationWidget):
 
         self._disconnect_btn = TransparentToolButton(FluentIcon.CLOSE, self)
         self._disconnect_btn.setFixedSize(24, 24)
-        self._disconnect_btn.setToolTip("Disconnect")
+        self._disconnect_btn.setToolTip(tr("Disconnect"))
         self._disconnect_btn.installEventFilter(ToolTipFilter(self._disconnect_btn, 0))
         self._disconnect_btn.setEnabled(False)
         self._disconnect_btn.clicked.connect(self.disconnect_clicked.emit)
@@ -135,7 +136,7 @@ class SidebarItem(NavigationWidget):
         subscription_icon = FluentIcon("Certificate")
         self._subscription_icon.setPixmap(subscription_icon.icon(color=color).pixmap(16))
         self._subscription_icon.setToolTip(
-            "Subscription status: " + ("subscribed" if is_subscribed else "not subscribed")
+            tr("Subscription status: {status}", status=tr(tr("subscribed") if is_subscribed else tr("not subscribed")))
         )
 
     def setCompacted(self, isCompacted: bool) -> None:

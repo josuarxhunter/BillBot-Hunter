@@ -16,6 +16,7 @@ from src.gui.consts import GREEN_COLOR
 from src.gui.pages.debugs.message_filter_proxy import MESSAGE_SEARCH_ROLE, MessageFilterProxyModel
 from src.protocol.message import MessageInfo
 from src.services.debug_recorder.recorder import RecentMessageEntry
+from src.gui.i18n import tr
 
 
 @dataclass
@@ -31,7 +32,7 @@ class MessageRow:
 
     def __post_init__(self) -> None:
         self.time_text = self.received_time.strftime("%H:%M:%S.%f")[:-3]
-        self.origin_text = "Server" if self.from_server else "Client"
+        self.origin_text = tr("Server") if self.from_server else tr("Client")
 
     def message_info(self) -> MessageInfo:
         if self._msg_info is None:
@@ -112,10 +113,10 @@ class MessageTable(BaseTableWidget):
         self._batch_timer.timeout.connect(self._flush_pending_messages)
         self._unmapped_candidates_by_obf: dict[str, list[tuple[str, float]]] = {}
         columns: list[ColumnInfo] = [
-            ColumnInfo(name="Heure"),
-            ColumnInfo(name="Origine"),
-            ColumnInfo(name="Type"),
-            ColumnInfo(name="Contenu", is_hidden=True),
+            ColumnInfo(name=tr("Heure")),
+            ColumnInfo(name=tr("Origine")),
+            ColumnInfo(name=tr("Type")),
+            ColumnInfo(name=tr("Contenu"), is_hidden=True),
         ]
         self.table.set_columns(columns)
 

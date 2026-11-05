@@ -23,6 +23,7 @@ from ankama_launcher_emulator.interfaces.schedule_profile import (
     ScheduleProfile,
 )
 
+from src.controller.settings import SettingsService
 from src.core.behaviors.socket.connection_behavior import ConnectionBehavior, ConnectionErrorCode
 from src.core.bot.bot import Bot
 from src.core.bot.bot_manager import BotManager
@@ -85,6 +86,8 @@ class TestGameClientSendRoutesToProcessMsg:
         monkeypatch.setattr(runtime_bot.event_manager, "on", event_manager_on)
         monkeypatch.setattr(runtime_bot.event_manager, "send", event_manager_send)
 
+        settings = SettingsService()
+        settings.update_behaviors(settings.get().behaviors, False, language="es")
         runtime_bot.handshake_behavior.run("game-ticket")
 
         authentication_listener_call = next(
@@ -104,6 +107,7 @@ class TestGameClientSendRoutesToProcessMsg:
         request_disconnect.assert_called_once_with()
         sent_message = event_manager_send.call_args.args[0]
         assert isinstance(sent_message, GameIdentificationRequest)
+        assert sent_message.language_code == "es"
 
 
 class TestSocketProxyConnection:

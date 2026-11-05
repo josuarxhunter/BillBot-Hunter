@@ -6,6 +6,7 @@ from PyQt6.QtCore import pyqtSignal
 
 from src.controller.bot_config import BotConfigService
 from src.gui.pages.settings.settings_panel import SettingsPanel
+from src.gui.i18n import tr
 
 
 class AssignmentSettingsPanel(SettingsPanel):
@@ -13,11 +14,11 @@ class AssignmentSettingsPanel(SettingsPanel):
 
     def __init__(self) -> None:
         super().__init__(
-            "Choose the schedule for an existing account. Active sessions finish with their current schedule."
+            tr("Choose the schedule for an existing account. Active sessions finish with their current schedule.")
         )
         self.entries: dict[str, BotRecord] = {}
-        self.account = self.overview(["Account", "Email", "Schedule", "Connection", "Status", "Reason"])
-        self.profile = self.combo("Schedule")
+        self.account = self.overview([tr("Account"), tr("Email"), tr("Schedule"), tr("Connection"), tr("Status"), tr("Reason")])
+        self.profile = self.combo(tr("Schedule"))
         self.account.selected.connect(self.select)
 
     def reload(self) -> None:
@@ -26,10 +27,10 @@ class AssignmentSettingsPanel(SettingsPanel):
             records, profiles = result
             self.entries = records
             self.profile.clear()
-            self.profile.addItems(["None", *sorted(profiles)])
+            self.profile.addItems([tr("None"), *sorted(profiles)])
             self.account.set_rows([
-                (login, (login, record.email, record.schedule_profile or "None", record.connection_mode,
-                         "Quarantined" if record.quarantine_reason else "Registered",
+                (login, (login, record.email, record.schedule_profile or tr("None"), record.connection_mode,
+                         tr("Quarantined") if record.quarantine_reason else tr("Registered"),
                          record.quarantine_reason or "—"))
                 for login, record in sorted(records.items())
             ])
@@ -54,7 +55,7 @@ class AssignmentSettingsPanel(SettingsPanel):
             self.profile.setCurrentText(record.schedule_profile)
         self.save_button.setEnabled(record is not None and record.quarantine_reason is None)
         self.status.setText(
-            "Restore the account from Activity before changing its schedule."
+            tr("Restore the account from Activity before changing its schedule.")
             if record and record.quarantine_reason
             else ""
         )

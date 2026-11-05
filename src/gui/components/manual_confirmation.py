@@ -4,6 +4,7 @@ from PyQt6.QtWidgets import QDialog, QDialogButtonBox, QVBoxLayout, QWidget
 from qfluentwidgets import BodyLabel, LineEdit, isDarkTheme
 
 from src.services.manual_confirmation import ConfirmationRequest, manual_confirmation
+from src.gui.i18n import tr
 
 
 class ManualConfirmationDialogs(QObject):
@@ -22,14 +23,14 @@ class ManualConfirmationDialogs(QObject):
         if not manual_confirmation.is_pending(request.identifier):
             return
         dialog = QDialog(self.window)
-        dialog.setWindowTitle("Confirmation code")
+        dialog.setWindowTitle(tr("Confirmation code"))
         dialog.setStyleSheet(
             "QDialog { background: #202020; }" if isDarkTheme() else "QDialog { background: white; }"
         )
         layout = QVBoxLayout(dialog)
-        layout.addWidget(BodyLabel(f"Code received for {request.email}", dialog))
+        layout.addWidget(BodyLabel(tr("Code received for {email}", email=request.email), dialog))
         code = LineEdit(dialog)
-        code.setPlaceholderText("6 chiffres")
+        code.setPlaceholderText(tr("6 chiffres"))
         code.setMaxLength(6)
         code.setValidator(QRegularExpressionValidator(QRegularExpression("[0-9]{6}"), code))
         layout.addWidget(code)

@@ -63,7 +63,9 @@ def report_fatal(error: BaseException, *, dialog: bool = True) -> None:
     message = error_message(error)
     logging.getLogger(__name__).error("Unable to start: %s", message, exc_info=error)
     if dialog and sys.platform == "win32":
-        ctypes.windll.user32.MessageBoxW(None, message, "BillBot — Error", 0x10)
+        from src.gui.i18n import tr
+
+        ctypes.windll.user32.MessageBoxW(None, tr(message), f"BillBot — {tr('Error')}", 0x10)
     elif sys.stderr is not None:
         print(message, file=sys.stderr)
 

@@ -2,6 +2,7 @@ from ankama_launcher_emulator.interfaces.schedule_profile import TimeSlot
 from PyQt6.QtCore import QTime
 from PyQt6.QtWidgets import QHBoxLayout, QTimeEdit, QVBoxLayout, QWidget
 from qfluentwidgets import BodyLabel, CardWidget, PushButton
+from src.gui.i18n import tr
 
 
 class TimeSlotEditor(QWidget):
@@ -12,17 +13,17 @@ class TimeSlotEditor(QWidget):
         layout.setSpacing(12)
         self.start = QTimeEdit(QTime.fromString(slot.start, "HH:mm"), self)
         self.end = QTimeEdit(QTime.fromString(slot.end, "HH:mm"), self)
-        for label, editor in (("Start", self.start), ("End", self.end)):
+        for label, editor in ((tr("Start"), self.start), (tr("End"), self.end)):
             editor.setDisplayFormat("HH:mm")
             editor.setMinimumHeight(32)
             editor.setAccessibleName(f"{day} — {label}")
             layout.addWidget(BodyLabel(label, self))
             layout.addWidget(editor)
-        self.overnight = BodyLabel("Ends the next day", self)
+        self.overnight = BodyLabel(tr("Ends the next day"), self)
         layout.addWidget(self.overnight)
         layout.addStretch()
-        self.remove_button = PushButton("Remove", self)
-        self.remove_button.setAccessibleName(f"Remove {day.lower()} time slot")
+        self.remove_button = PushButton(tr("Remove"), self)
+        self.remove_button.setAccessibleName(tr("Remove {day} time slot", day=day.lower()))
         layout.addWidget(self.remove_button)
         self.start.timeChanged.connect(self.update_overnight)
         self.end.timeChanged.connect(self.update_overnight)
@@ -50,11 +51,11 @@ class ScheduleDayEditor(CardWidget):
         title.setFont(font)
         header.addWidget(title)
         header.addStretch()
-        self.add_button = PushButton("Add time slot", self)
-        self.add_button.setAccessibleName(f"Add a time slot on {day.lower()}")
+        self.add_button = PushButton(tr("Add time slot"), self)
+        self.add_button.setAccessibleName(tr("Add a time slot on {day}", day=day.lower()))
         header.addWidget(self.add_button)
         layout.addLayout(header)
-        self.empty = BodyLabel("No time slots", self)
+        self.empty = BodyLabel(tr("No time slots"), self)
         layout.addWidget(self.empty)
         self.slots_layout = QVBoxLayout()
         self.slots_layout.setSpacing(12)

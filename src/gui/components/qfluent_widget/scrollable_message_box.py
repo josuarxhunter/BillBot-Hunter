@@ -9,6 +9,7 @@ from qfluentwidgets import (
 )
 
 from src.gui.components.log_syntax_highlighter import LogSyntaxHighlighter
+from src.gui.i18n import tr
 
 
 class ScrollableMessageBox(MessageBoxBase):
@@ -41,7 +42,7 @@ class ScrollableMessageBox(MessageBoxBase):
 
         self.highlighter = LogSyntaxHighlighter(self.content_edit.document())
 
-        self.copy_button = PushButton("Copy to clipboard", self)
+        self.copy_button = PushButton(tr("Copy to clipboard"), self)
         self.copy_button.clicked.connect(lambda: self._copy_to_clipboard(content))
 
         scroll_area = SingleDirectionScrollArea(self)

@@ -11,28 +11,31 @@ from ankama_launcher_emulator.interfaces.mail_account import (
 from qfluentwidgets import BodyLabel
 
 from src.gui.pages.settings.settings_panel import SettingsPanel
+from src.gui.i18n import tr
 
 
 class MailSettingsPanel(SettingsPanel):
     def __init__(self) -> None:
         super().__init__(
-            "Add an available mailbox for automation. "
-            "In manual mode, a dialog will request the confirmation code."
+            tr(
+                "Add an available mailbox for automation. "
+                "In manual mode, a dialog will request the confirmation code."
+            )
         )
         self.entries: dict[str, MailAccountEntry] = {}
         self.selected_email: str | None = None
-        self.selection = self.overview(["Email address", "Provider", "Status"], "New mailbox…")
-        self.email = self.line("Adresse email")
-        self.provider = self.combo("Type", ["imap", "manual", "smailpro"])
-        self.host = self.line("IMAP server")
-        self.port = self.line("Port IMAP")
-        self.username = self.line("IMAP username")
-        self.password = self.line("IMAP password")
-        self.api_key = self.line("SmailPro key")
-        self.kind = self.combo("Type SmailPro", ["gmail", "outlook"])
-        self.timestamp = self.line("SmailPro creation timestamp")
+        self.selection = self.overview([tr("Email address"), tr("Provider"), tr("Status")], tr("New mailbox…"))
+        self.email = self.line(tr("Adresse email"))
+        self.provider = self.combo(tr("Type"), ["imap", "manual", "smailpro"])
+        self.host = self.line(tr("IMAP server"))
+        self.port = self.line(tr("Port IMAP"))
+        self.username = self.line(tr("IMAP username"))
+        self.password = self.line(tr("IMAP password"))
+        self.api_key = self.line(tr("SmailPro key"))
+        self.kind = self.combo(tr("Type SmailPro"), ["gmail", "outlook"])
+        self.timestamp = self.line(tr("SmailPro creation timestamp"))
         self.state = BodyLabel("", self)
-        self.form.addRow(BodyLabel("Status", self), self.state)
+        self.form.addRow(BodyLabel(tr("Status"), self), self.state)
         self.selection.selected.connect(self.select)
         self.provider.currentIndexChanged.connect(self._provider_changed)
 
@@ -47,7 +50,7 @@ class MailSettingsPanel(SettingsPanel):
             self.entries = entries
             self.selection.set_rows([
                 (email, (email, entry.config.provider if entry.config else "—",
-                         "Quarantined" if entry.bad_state else "Already used" if entry.is_used else "Available"))
+                         tr("Quarantined") if entry.bad_state else tr("Already used") if entry.is_used else tr("Available")))
                 for email, entry in sorted(entries.items())
             ])
             self.select()
@@ -74,7 +77,7 @@ class MailSettingsPanel(SettingsPanel):
         self.kind.setCurrentText(config.kind if isinstance(config, SmailProAccountConfig) else "gmail")
         self.timestamp.setText(str(config.timestamp) if isinstance(config, SmailProAccountConfig) else "")
         self.state.setText(
-            "Quarantined" if entry.bad_state else "Already used" if entry.is_used else "Available"
+            tr("Quarantined") if entry.bad_state else tr("Already used") if entry.is_used else tr("Available")
         )
         self._provider_changed()
 

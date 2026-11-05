@@ -2,19 +2,20 @@ from ankama_launcher_emulator.controller.paysafecard_pool import PaysafecardPool
 from qfluentwidgets import BodyLabel
 
 from src.gui.pages.settings.settings_panel import SettingsPanel
+from src.gui.i18n import tr
 
 
 class PaymentSettingsPanel(SettingsPanel):
     def __init__(self) -> None:
         super().__init__(
-            "Add a 16-digit Paysafecard code. Existing codes are kept and duplicates are ignored."
+            tr("Add a 16-digit Paysafecard code. Existing codes are kept and duplicates are ignored.")
         )
-        self.selection = self.overview(["Ordre d’utilisation", "Code Paysafecard"])
+        self.selection = self.overview([tr("Ordre d’utilisation"), tr("Code Paysafecard")])
         self.bind_deletion(self.selection, PaysafecardPoolController().remove_pin)
-        self.pin = self.line("Code Paysafecard")
+        self.pin = self.line(tr("Code Paysafecard"))
         self.count = BodyLabel("", self)
-        self.form.addRow(BodyLabel("Saved codes", self), self.count)
-        self.save_button.setText("Add code")
+        self.form.addRow(BodyLabel(tr("Saved codes"), self), self.count)
+        self.save_button.setText(tr("Add code"))
 
     def reload(self) -> None:
         def render(pins: list[str]) -> None:

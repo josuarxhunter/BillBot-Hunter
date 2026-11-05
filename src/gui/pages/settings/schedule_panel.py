@@ -6,6 +6,7 @@ from PyQt6.QtCore import pyqtSignal
 from src.controller.settings_deletion import delete_schedule
 from src.gui.pages.settings.settings_panel import SettingsPanel
 from src.gui.pages.settings.schedule_day_editor import ScheduleDayEditor
+from src.gui.i18n import tr
 
 
 class ScheduleSettingsPanel(SettingsPanel):
@@ -13,17 +14,19 @@ class ScheduleSettingsPanel(SettingsPanel):
 
     def __init__(self) -> None:
         super().__init__(
-            "Add each day's time slots with a start and end time. "
-            "Each slot must exceed one hour and may cross midnight. Changes preserve active sessions."
+            tr(
+                "Add each day's time slots with a start and end time. "
+                "Each slot must exceed one hour and may cross midnight. Changes preserve active sessions."
+            )
         )
         self.entries: dict[str, ScheduleProfile] = {}
-        self.selection = self.overview(["Identifier", "Name", "Proxy", "Time slots"], "New schedule…")
-        self.identifier = self.line("Identifier")
-        self.name = self.line("Name")
-        self.proxy = self.combo("Proxy")
+        self.selection = self.overview([tr("Identifier"), tr("Name"), tr("Proxy"), tr("Time slots")], tr("New schedule…"))
+        self.identifier = self.line(tr("Identifier"))
+        self.name = self.line(tr("Name"))
+        self.proxy = self.combo(tr("Proxy"))
         self.days = [
             ScheduleDayEditor(day, self)
-            for day in ("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
+            for day in (tr("Monday"), tr("Tuesday"), tr("Wednesday"), tr("Thursday"), tr("Friday"), tr("Saturday"), tr("Sunday"))
         ]
         for day in self.days:
             self.form.addRow(day)
@@ -40,12 +43,12 @@ class ScheduleSettingsPanel(SettingsPanel):
                 (identifier, (identifier, profile.name_fr, profile.proxy_id,
                     "\n".join(
                         f"{day}: " + ", ".join(
-                            f"{slot.start}–{slot.end}" + (" (+1 day)" if slot.end < slot.start else "")
+                            f"{slot.start}–{slot.end}" + (tr(" (+1 day)") if slot.end < slot.start else "")
                             for slot in profile.slots_by_day.get(str(index), [])
                         )
-                        for index, day in enumerate(("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"))
+                        for index, day in enumerate((tr("Mon"), tr("Tue"), tr("Wed"), tr("Thu"), tr("Fri"), tr("Sat"), tr("Sun")))
                         if profile.slots_by_day.get(str(index))
-                    ) or "No time slots"))
+                    ) or tr("No time slots")))
                 for identifier, profile in sorted(profiles.items())
             ])
             self.select()

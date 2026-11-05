@@ -3,6 +3,7 @@ from functools import partial
 from PyQt6.QtCore import QSignalBlocker, Qt, pyqtSignal
 from PyQt6.QtWidgets import QHeaderView, QSizePolicy, QTableWidgetItem, QVBoxLayout, QWidget
 from qfluentwidgets import BodyLabel, FluentIcon, PushButton, TableWidget, TransparentToolButton, SmoothMode
+from src.gui.i18n import tr
 
 
 class SettingsOverview(QWidget):
@@ -37,9 +38,9 @@ class SettingsOverview(QWidget):
         horizontal.setSectionResizeMode(len(headers), QHeaderView.ResizeMode.Fixed)
         self.table.setColumnWidth(len(headers), 36)
         layout.addWidget(self.table)
-        self.empty = BodyLabel("No saved items.", self)
+        self.empty = BodyLabel(tr("No saved items."), self)
         layout.addWidget(self.empty)
-        self.new_button = PushButton(new_label or "New…", self)
+        self.new_button = PushButton(new_label or tr("New…"), self)
         self.new_button.setVisible(new_label is not None)
         layout.addWidget(self.new_button, alignment=Qt.AlignmentFlag.AlignLeft)
         self.new_button.clicked.connect(lambda: self.select_key(None))
@@ -76,13 +77,13 @@ class SettingsOverview(QWidget):
                 line_count = max(value.count("\n") + 1 for value in values)
                 self.table.setRowHeight(row, max(32, self.table.fontMetrics().lineSpacing() * line_count + 12))
                 button = TransparentToolButton(FluentIcon.CLOSE, self.table)
-                button.setToolTip("Delete")
-                button.setAccessibleName(f"Delete {key}")
+                button.setToolTip(tr("Delete"))
+                button.setAccessibleName(tr("Delete {label}", label=key))
                 button.clicked.connect(partial(self._request_delete, key))
                 self.table.setCellWidget(row, len(values), button)
             self.table.setFixedHeight(min(240, 40 + sum(self.table.rowHeight(i) for i in range(len(rows)))))
             if selected in self.keys:
                 self.table.selectRow(self.keys.index(selected))
-        self.count.setText(f"{len(rows)} saved item(s)")
+        self.count.setText(tr("{count} saved item(s)", count=len(rows)))
         self.empty.setVisible(not rows)
         self.table.setVisible(bool(rows))

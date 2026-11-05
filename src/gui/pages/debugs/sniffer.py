@@ -44,6 +44,7 @@ from src.protocol.message_names import (
     load_non_obf_game_message_full_names,
 )
 from src.protocol.protocol_game import POOL
+from src.gui.i18n import tr
 
 
 def _require_message_info(value: object) -> MessageInfo:
@@ -154,9 +155,9 @@ class PinnedPairMessageBox(MessageBoxBase):
     ) -> None:
         super().__init__(parent=parent)
         self._valid_non_obf_msg_names = set(non_obf_msg_names)
-        self.title_label = SubtitleLabel(f"Pinned pair for {obf_msg_name}", parent=self)
+        self.title_label = SubtitleLabel(tr("Pinned pair for {message}", message=obf_msg_name), parent=self)
         self.message_name_edit = LineEdit(self)
-        self.message_name_edit.setPlaceholderText("Unobfuscated message name")
+        self.message_name_edit.setPlaceholderText(tr("Unobfuscated message name"))
         self.message_name_edit.setMinimumWidth(420)
 
         completer = QCompleter(self)
@@ -165,8 +166,8 @@ class PinnedPairMessageBox(MessageBoxBase):
         completer.setModel(QStringListModel(non_obf_msg_names, completer))
         self.message_name_edit.setCompleter(completer)
 
-        cast(Any, self).yesButton.setText("Sauvegarder")
-        cast(Any, self).cancelButton.setText("Cancel")
+        cast(Any, self).yesButton.setText(tr("Sauvegarder"))
+        cast(Any, self).cancelButton.setText(tr("Cancel"))
 
         self.viewLayout.addWidget(self.title_label)
         self.viewLayout.addWidget(self.message_name_edit)
@@ -226,17 +227,17 @@ class SnifferWidget(QWidget):
         top_content_layout = QHBoxLayout()
         top_content.setLayout(top_content_layout)
         top_content_layout.setContentsMargins(0, 0, 0, 0)
-        reset_btn = PrimaryPushButton(FluentIcon.DELETE, "Reset", top_content)
+        reset_btn = PrimaryPushButton(FluentIcon.DELETE, tr("Reset"), top_content)
         reset_btn.clicked.connect(self.on_reset)
         top_content_layout.addWidget(reset_btn)
 
-        self.play_btn = PrimaryPushButton(FluentIcon.PLAY, "Start sniffer", top_content)
+        self.play_btn = PrimaryPushButton(FluentIcon.PLAY, tr("Start sniffer"), top_content)
         if self.is_playing:
             self.play_btn.hide()
         self.play_btn.clicked.connect(self.on_play)
         top_content_layout.addWidget(self.play_btn)
 
-        self.stop_btn = PrimaryPushButton(FluentIcon.PAUSE, "Stop sniffer", top_content)
+        self.stop_btn = PrimaryPushButton(FluentIcon.PAUSE, tr("Stop sniffer"), top_content)
         if not self.is_playing:
             self.stop_btn.hide()
         self.stop_btn.clicked.connect(self.on_stop)
@@ -267,7 +268,7 @@ class SnifferWidget(QWidget):
         wrapper_filter_layout.setContentsMargins(0, 16, 0, 0)
         custom_filter = LineEdit(wrapper_filter)
         wrapper_filter_layout.addWidget(custom_filter)
-        custom_filter.setPlaceholderText("Contenu")
+        custom_filter.setPlaceholderText(tr("Contenu"))
         custom_filter.textChanged.connect(partial(self.msg_table.table.header.on_new_filter_input, 3))
 
         left_widget_layout.addWidget(wrapper_filter)
@@ -313,12 +314,12 @@ class SnifferWidget(QWidget):
 
             debug_pivot.addItem(
                 routeKey="logs",
-                text="Journaux",
+                text=tr("Journaux"),
                 onClick=lambda: debug_stacked.setCurrentWidget(logs_widget),
             )
             debug_pivot.addItem(
                 routeKey="listeners",
-                text="Listeners",
+                text=tr("Listeners"),
                 onClick=lambda: self._show_listeners_tab(debug_stacked, listeners_widget),
             )
             debug_pivot.setCurrentItem("logs")
@@ -357,7 +358,7 @@ class SnifferWidget(QWidget):
         layout = QVBoxLayout(empty_state)
         layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(
-            SubtitleLabel("Select a message to view its content", empty_state),
+            SubtitleLabel(tr("Select a message to view its content"), empty_state),
             alignment=Qt.AlignmentFlag.AlignCenter,
         )
         return empty_state
@@ -470,8 +471,8 @@ class SnifferWidget(QWidget):
         if message_pair is None:
             QMessageBox.warning(
                 self,
-                "Pinned fields",
-                "Unable to lock fields for this message.",
+                tr("Pinned fields"),
+                tr("Unable to lock fields for this message."),
             )
             return
 
@@ -479,8 +480,8 @@ class SnifferWidget(QWidget):
         if fields is None:
             QMessageBox.warning(
                 self,
-                "Pinned fields",
-                "Select a root field in each tree.",
+                tr("Pinned fields"),
+                tr("Select a root field in each tree."),
             )
             return
 
@@ -489,8 +490,8 @@ class SnifferWidget(QWidget):
         if resolved_message_pair is None:
             QMessageBox.warning(
                 self,
-                "Pinned fields",
-                "The selected fields do not target a compatible type pair.",
+                tr("Pinned fields"),
+                tr("The selected fields do not target a compatible type pair."),
             )
             return
 
@@ -504,8 +505,8 @@ class SnifferWidget(QWidget):
         non_obf_field_name = non_obf_field.path_label
         QMessageBox.information(
             self,
-            "Pinned fields",
-            f"{obf_field_name} -> {non_obf_field_name} locked.",
+            tr("Pinned fields"),
+            tr("{source} -> {target} locked.", source=obf_field_name, target=non_obf_field_name),
         )
 
     def _show_listeners_tab(

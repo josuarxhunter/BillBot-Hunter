@@ -1,6 +1,5 @@
 from DBDofusUnity.datas.protos.non_obf.game.common_pb2 import ObjectItemInventory
 from DBDofusUnity.dofus_unity_reader.data_center.data_reader import DataReader
-from DBDofusUnity.dofus_unity_reader.data_center.i18n import I18N
 from DBDofusUnity.dofus_unity_reader.game_constants.inventory_position import (
     CharacterInventoryPositionEnum,
 )
@@ -9,6 +8,8 @@ from PyQt6.QtWidgets import QGridLayout, QVBoxLayout, QWidget
 from qfluentwidgets import BodyLabel, CaptionLabel
 
 from src.gui.components.group_box import GroupBox
+from src.gui.game_names import game_names
+from src.gui.i18n import tr
 
 _EMPTY_VALUE = "—"
 
@@ -36,8 +37,8 @@ _SLOT_LAYOUT: list[tuple[CharacterInventoryPositionEnum, str, int, int]] = [
 def get_item_name(object_item: ObjectItemInventory) -> str:
     item_data = DataReader().item_by_id.get(object_item.item.gid)
     if item_data and item_data.nameId:
-        return I18N().name_by_id.get(item_data.nameId, f"Item {object_item.item.gid}")
-    return f"Item {object_item.item.gid}"
+        return game_names().get(item_data.nameId, tr("Item {id}", id=object_item.item.gid))
+    return tr("Item {id}", id=object_item.item.gid)
 
 
 class _SlotWidget(QWidget):
@@ -70,7 +71,7 @@ class EquipmentPanelWidget(GroupBox):
         grid.setSpacing(6)
         self.slot_by_position: dict[int, _SlotWidget] = {}
         for position, label, row, col in _SLOT_LAYOUT:
-            slot = _SlotWidget(label)
+            slot = _SlotWidget(tr(label))
             grid.addWidget(slot, row, col)
             self.slot_by_position[int(position)] = slot
 

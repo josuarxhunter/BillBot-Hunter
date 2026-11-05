@@ -36,6 +36,7 @@ from DBDofusUnity.datas.protos.non_obf.game.social_pb2 import (
     ChatCommunityChannelSetCommunityRequest,
     SpouseInformationRequest,
 )
+from src.controller.settings import SettingsService
 from src.core.behaviors.account.character_creation_behavior import (
     CharacterCreationBehavior,
 )
@@ -94,7 +95,8 @@ class HandshakeBehavior(Behavior):
             CharacterForceSelectionEvent, self.on_character_force_selection_event, originator=self, once=True
         )
         self.event_manager.on(CharacterSelectionEvent, self.on_character_selection_event, originator=self)
-        self.event_manager.send(GameIdentificationRequest(ticket_key=ticket, language_code="fr"))
+        language = SettingsService().get().language
+        self.event_manager.send(GameIdentificationRequest(ticket_key=ticket, language_code=language))
 
     def on_authentication_ticket_accepted_timeout(self) -> None:
         request_disconnect = self.event_manager.request_disconnect_callback

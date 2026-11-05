@@ -5,10 +5,11 @@ from PyQt6.QtWidgets import QHBoxLayout, QVBoxLayout, QWidget
 from qfluentwidgets import BodyLabel, CaptionLabel
 
 from DBDofusUnity.dofus_unity_reader.data_center.data_reader import DataReader
-from DBDofusUnity.dofus_unity_reader.data_center.i18n import I18N
 from src import consts
 from src.controller.player_info_storage import PlayerInfoSnapshot
 from src.core.bot.bot import Bot
+from src.gui.game_names import game_names
+from src.gui.i18n import tr
 
 _UNKNOWN_VALUE = "—"
 
@@ -30,11 +31,11 @@ class AccountQuickInfoWidget(QWidget):
         self.setLayout(layout)
 
         self.subscription_end_column, self.subscription_end_label = self._add_info_column(
-            layout, "Subscription end"
+            layout, tr("Subscription end")
         )
         _, self.kamas_label = self._add_info_column(layout, "Kamas")
-        _, self.level_label = self._add_info_column(layout, "Niveau")
-        _, self.sub_area_label = self._add_info_column(layout, "Sous-zone actuelle")
+        _, self.level_label = self._add_info_column(layout, tr("Niveau"))
+        _, self.sub_area_label = self._add_info_column(layout, tr("Sous-zone actuelle"))
 
         self.bot.game_info_signals.subscription_end_date.connect(self._set_subscription_end_date)
         self.bot.inventory_signals.kamas.connect(self._set_kamas)
@@ -109,14 +110,14 @@ class AccountQuickInfoWidget(QWidget):
             return
         map_position = DataReader().map_info_by_map_id[map_id]
         sub_area = DataReader().sub_area_by_id[map_position.subAreaId]
-        self.sub_area_label.setText(I18N().name_by_id[sub_area.nameId])
+        self.sub_area_label.setText(game_names()[sub_area.nameId])
 
     @staticmethod
     def resolve_snapshot_sub_area_names(
         snapshots: dict[str, PlayerInfoSnapshot],
     ) -> dict[str, str]:
         reader = DataReader()
-        names = I18N().name_by_id
+        names = game_names()
         return {
             login: names[reader.sub_area_by_id[reader.map_info_by_map_id[snapshot.map_id].subAreaId].nameId]
             for login, snapshot in snapshots.items()

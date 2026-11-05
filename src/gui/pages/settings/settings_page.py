@@ -9,6 +9,7 @@ from src.gui.pages.settings.payment_panel import PaymentSettingsPanel
 from src.gui.pages.settings.proxy_panel import ProxySettingsPanel
 from src.gui.pages.settings.schedule_panel import ScheduleSettingsPanel
 from src.gui.pages.settings.services_panel import ServicesSettingsPanel
+from src.gui.i18n import tr
 
 
 class SettingsPage(QWidget):
@@ -19,7 +20,7 @@ class SettingsPage(QWidget):
         self.setObjectName("settings")
         layout = QVBoxLayout(self)
         layout.setContentsMargins(24, 24, 24, 24)
-        layout.addWidget(SubtitleLabel("Settings", self))
+        layout.addWidget(SubtitleLabel(tr("Settings"), self))
         self.navigation = SegmentedWidget(self)
         layout.addWidget(self.navigation)
         self.stack = QStackedWidget(self)
@@ -35,13 +36,13 @@ class SettingsPage(QWidget):
         self.assignments.changed.connect(self.schedules_changed.emit)
         for index, (label, panel) in enumerate(
             [
-                ("Behaviors", self.behaviors),
-                ("Email", self.mail),
-                ("Proxies", self.proxies),
-                ("Schedules", self.schedules),
-                ("Accounts", self.assignments),
-                ("Services", self.services),
-                ("Payments", self.payments),
+                (tr("Behaviors"), self.behaviors),
+                (tr("Email"), self.mail),
+                (tr("Proxies"), self.proxies),
+                (tr("Schedules"), self.schedules),
+                (tr("Accounts"), self.assignments),
+                (tr("Services"), self.services),
+                (tr("Payments"), self.payments),
             ]
         ):
             scroll = QScrollArea(self)

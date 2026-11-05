@@ -13,6 +13,7 @@ from src.services.release_update import (
     prepare_update,
 )
 from src.utils.runtime_support import RuntimeSetupError
+from src.gui.i18n import tr
 
 
 class StartupWorker(QThread):
@@ -55,12 +56,12 @@ def check_release_update(application: Application) -> bool:
     status = consume_update_status()
     if status:
         logging.getLogger(__name__).warning("Update failed: %s", status)
-        QMessageBox.warning(None, "Update failed", status)
+        QMessageBox.warning(None, tr("Update failed"), status)
     if os.environ.pop(SKIP_UPDATE_ENV, None) == "1":
         return False
     try:
         return bool(run_startup_task(application, prepare_update))
     except (RuntimeSetupError, OSError) as error:
         logging.getLogger(__name__).warning("Update failed: %s", error, exc_info=True)
-        QMessageBox.warning(None, "Update failed", f"{error}\n\nContinuing with the current bundle.")
+        QMessageBox.warning(None, tr("Update failed"), f"{error}\n\n" + tr("Continuing with the current bundle."))
         return False

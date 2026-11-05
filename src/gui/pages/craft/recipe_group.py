@@ -1,7 +1,6 @@
 from functools import cache
 
 from DBDofusUnity.dofus_unity_reader.data_center.data_reader import DataReader
-from DBDofusUnity.dofus_unity_reader.data_center.i18n import I18N
 from DBDofusUnity.dofus_unity_reader.models.datas.recipe_root import RecipeItem
 from PyQt6.QtCore import (
     QAbstractListModel,
@@ -15,6 +14,8 @@ from PyQt6.QtWidgets import QListView, QStackedWidget, QVBoxLayout, QWidget
 from qfluentwidgets import BodyLabel, CaptionLabel, LineEdit
 
 from src.core.engine.crafts.recipes import is_supported_craft_recipe
+from src.gui.game_names import game_names
+from src.gui.i18n import tr
 
 
 class RecipeGroupSignals(QObject):
@@ -27,7 +28,7 @@ class RecipeCatalogModel(QAbstractListModel):
         reader = DataReader()
         self.recipes = [recipe for recipe in reader.recipes if is_supported_craft_recipe(recipe)]
         self.names = [
-            I18N().name_by_id.get(reader.item_by_id[recipe.resultId].nameId, "")
+            game_names().get(reader.item_by_id[recipe.resultId].nameId, "")
             if reader.item_by_id[recipe.resultId].nameId
             else ""
             for recipe in self.recipes
@@ -97,9 +98,9 @@ class RecipeGroup(QWidget):
         empty_state = QWidget(self.recipe_results)
         empty_state_layout = QVBoxLayout(empty_state)
         empty_state_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.empty_state_title = BodyLabel("Search for a recipe to craft", empty_state)
+        self.empty_state_title = BodyLabel(tr("Search for a recipe to craft"), empty_state)
         self.empty_state_description = CaptionLabel(
-            "Available for: Lumberjack, Miner, Alchemist, Farmer, Fisherman, and Hunter.",
+            tr("Available for: Lumberjack, Miner, Alchemist, Farmer, Fisherman, and Hunter."),
             empty_state,
         )
         empty_state_layout.addWidget(self.empty_state_title, alignment=Qt.AlignmentFlag.AlignCenter)
@@ -108,7 +109,7 @@ class RecipeGroup(QWidget):
         layout.addWidget(self.recipe_results)
 
         self.search_edit = LineEdit(self)
-        self.search_edit.setPlaceholderText("Search for a craftable recipe")
+        self.search_edit.setPlaceholderText(tr("Search for a craftable recipe"))
         self.search_edit.textChanged.connect(self._on_search_changed)
         layout.addWidget(self.search_edit)
         self._update_result_view()
@@ -128,15 +129,17 @@ class RecipeGroup(QWidget):
     def _update_result_view(self) -> None:
         query = self.search_edit.text()
         if len(query) < 3:
-            self.empty_state_title.setText("Search for a recipe to craft")
+            self.empty_state_title.setText(tr("Search for a recipe to craft"))
             self.empty_state_description.setText(
-                "Available for: Lumberjack, Miner, Alchemist, Farmer, Fisherman, and Hunter. "
-                "Enter at least 3 characters."
+                tr(
+                    "Available for: Lumberjack, Miner, Alchemist, Farmer, Fisherman, and Hunter. "
+                    "Enter at least 3 characters."
+                )
             )
             self.recipe_results.setCurrentIndex(1)
         elif self.proxy_model.rowCount() == 0:
-            self.empty_state_title.setText("No recipe found")
-            self.empty_state_description.setText("Try another name from the supported professions.")
+            self.empty_state_title.setText(tr("No recipe found"))
+            self.empty_state_description.setText(tr("Try another name from the supported professions."))
             self.recipe_results.setCurrentIndex(1)
         else:
             self.recipe_results.setCurrentWidget(self.list_view)

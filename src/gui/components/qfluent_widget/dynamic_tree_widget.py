@@ -5,6 +5,7 @@ from PyQt6.QtCore import QPoint, Qt
 from PyQt6.QtGui import QKeyEvent, QKeySequence
 from PyQt6.QtWidgets import QApplication, QMenu, QTreeWidgetItem, QWidget
 from qfluentwidgets import TreeWidget
+from src.gui.i18n import tr
 
 TreeValue: TypeAlias = str | int | float | bool | None | dict[str, "TreeValue"] | list["TreeValue"]
 
@@ -34,7 +35,7 @@ class DynamicTreeWidget(TreeWidget):
         if item is None:
             return
         menu = QMenu(self)
-        copy_action = menu.addAction("Copier")
+        copy_action = menu.addAction(tr("Copier"))
         viewport = self.viewport()
         assert viewport is not None
         if menu.exec(viewport.mapToGlobal(pos)) == copy_action:

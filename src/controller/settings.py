@@ -9,6 +9,7 @@ from pydantic import ValidationError
 from src.core.config import BehaviorSettings, GlobalSettings
 from src.utils.project_paths import USER_DATA_ROOT
 from src.utils.runtime_support import RuntimeSetupError
+from utils.language import GameLanguage
 from utils.local_json import read_local_model
 from utils.singleton import Singleton
 
@@ -64,11 +65,17 @@ class SettingsService(metaclass=Singleton):
         key = self.get().sonji_api_key
         return (os.getenv("SONJI_API_KEY") if key is None else key) or None
 
-    def update_behaviors(self, behaviors: BehaviorSettings, enabled: bool) -> None:
+    def update_behaviors(
+        self, behaviors: BehaviorSettings, enabled: bool, *, language: GameLanguage | None = None
+    ) -> None:
         with self._lock:
             current = self.get()
             self._save(
-                current.model_copy(update={"behaviors": behaviors, "enable_account_automation": enabled})
+                current.model_copy(update={
+                    "behaviors": behaviors,
+                    "enable_account_automation": enabled,
+                    "language": current.language if language is None else language,
+                })
             )
 
     def update_sonji_key(self, key: str | None) -> None:

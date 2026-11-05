@@ -26,6 +26,7 @@ if not getattr(sys, "frozen", False):
     for import_root in (BUNDLE_ROOT, BUNDLE_ROOT / "DBDofusUnity", BUNDLE_ROOT / "AnkamaLauncherEmulator"):
         sys.path.insert(0, str(import_root))
 
+from src.gui.i18n import set_language, tr
 from src.utils.project_paths import ENV_PATH, ensure_packaged_runtime_data
 from src.utils.runtime_support import (
     RuntimeSetupError,
@@ -87,11 +88,11 @@ def validate_startup(progress: Callable[[str], None]) -> None:
     from src.services.game_version import validate_game_version
     from src.services.install_validation import validate_browser, validate_resources
 
-    progress("Checking Dofus version...")
+    progress(tr("Checking Dofus version..."))
     validate_game_version()
-    progress("Checking resources...")
+    progress(tr("Checking resources..."))
     validate_resources()
-    progress("Checking browser...")
+    progress(tr("Checking browser..."))
     validate_browser()
     ensure_packaged_runtime_data()
 
@@ -102,18 +103,21 @@ def main(argv: list[str] | None = None) -> int:
     startup_error: RuntimeSetupError | OSError | None = None
     try:
         check_platform()
+        from src.controller.settings import SettingsService
+
+        set_language(SettingsService().get().language)
         runtime_args = parse_runtime_args(argv)
         if getattr(sys, "frozen", False):
             from src.gui.application import Application
 
             application = Application(runtime_args.application_argv)
-            application.show_startup_status("Checking for updates...")
+            application.show_startup_status(tr("Checking for updates..."))
             from src.gui.update_dialog import check_release_update, run_startup_task
 
             if check_release_update(application):
                 return 0
             run_startup_task(application, validate_startup)
-            application.show_startup_status("Loading interface...")
+            application.show_startup_status(tr("Loading interface..."))
         else:
             validate_startup(lambda status: None)
         from src.controller.bot_config import BotConfigService

@@ -32,6 +32,7 @@ from src.gui.pages.activity import ActivityPage
 from src.gui.pages.settings.settings_page import SettingsPage
 from src.services.background import run_in_background
 from src.services.logging_utils.loggers import init_root_gui_logging
+from src.gui.i18n import tr
 
 logger = logging.getLogger()
 _BREED_ICON_URL_TEMPLATE = "https://api.dofusdb.fr/img/breeds/symbol_{breed_id}.png"
@@ -79,7 +80,7 @@ class MainWindow(AppFluentWindow):
         self.navigationInterface.addItem(
             routeKey=self.activity_page.objectName(),
             icon=FluentIcon.HISTORY,  # type: ignore
-            text="Activity",
+            text=tr("Activity"),
             onClick=lambda: self.switchTo(self.activity_page),
             position=NavigationItemPosition.TOP,
         )
@@ -89,7 +90,7 @@ class MainWindow(AppFluentWindow):
         self.navigationInterface.addItem(
             routeKey="settings",
             icon=FluentIcon.SETTING,  # type: ignore
-            text="Settings",
+            text=tr("Settings"),
             onClick=lambda: self.switchTo(self.settings_page),
             position=NavigationItemPosition.BOTTOM,
         )

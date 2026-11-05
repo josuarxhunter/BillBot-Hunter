@@ -231,7 +231,9 @@ def test_launch_reads_hook_from_bundle_with_frozen_module_path(
         patch.object(launch, "resolve_dofus_path", return_value="Dofus.exe"),
         patch.object(launch.frida, "get_local_device", return_value=device),
     ):
-        assert launch.launch_dofus_exe(1, "synthetic", 9999) == 123
+        assert launch.launch_dofus_exe(1, "synthetic", 9999, language="es") == 123
+    command = device.spawn.call_args.kwargs["program"]
+    assert command[command.index("--langCode") + 1] == "es"
     device.attach.return_value.create_script.assert_called_once_with("// bundled hook")
     device.attach.return_value.create_script.return_value.load.assert_called_once()
     device.resume.assert_called_once_with(123)

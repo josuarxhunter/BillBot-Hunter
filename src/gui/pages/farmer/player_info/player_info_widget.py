@@ -4,11 +4,12 @@ from PyQt6.QtCore import pyqtSlot
 from PyQt6.QtWidgets import QWidget
 
 from DBDofusUnity.dofus_unity_reader.data_center.data_reader import DataReader
-from DBDofusUnity.dofus_unity_reader.data_center.i18n import I18N
 from DBDofusUnity.dofus_unity_reader.game_constants.job import HARVESTER_JOB_IDS, JobEnum
 from src.controller.player_info_storage import PlayerInfoStorage
 from src.core.bot.bot import Bot
 from src.gui.pages.farmer.player_info.property_panel_widget import PropertyPanelWidget
+from src.gui.game_names import game_names
+from src.gui.i18n import tr
 
 _HARVEST_JOB_IDS = HARVESTER_JOB_IDS - {JobEnum.BASE}
 
@@ -21,14 +22,14 @@ class PlayerInfoWidget(PropertyPanelWidget):
         self.snapshot = PlayerInfoStorage().get_snapshot(bot.account.apikey.login)
 
         self.bot.game_info_signals.character_id.connect(
-            partial(self.on_received_property, "Joueur", "Player id")
+            partial(self.on_received_property, tr("Joueur"), tr("Player id"))
         )
-        self.bot.game_info_signals.character_name.connect(partial(self.on_received_property, "Player", "Name"))
-        self.bot.game_info_signals.level.connect(partial(self.on_received_property, "Joueur", "Niveau"))
+        self.bot.game_info_signals.character_name.connect(partial(self.on_received_property, tr("Player"), tr("Name")))
+        self.bot.game_info_signals.level.connect(partial(self.on_received_property, tr("Joueur"), tr("Niveau")))
         self.bot.game_info_signals.breed_id.connect(self.on_breed_id_changed)
         self.bot.game_info_signals.server_id.connect(self.on_server_id_changed)
         self.bot.game_info_signals.last_time_updated_prices.connect(
-            partial(self.on_received_property, "Marketplace", "Last price update")
+            partial(self.on_received_property, tr("Marketplace"), tr("Last price update"))
         )
         self.bot.game_info_signals.job_level_changed.connect(self.on_job_level_changed)
         self.bot.inventory_signals.kamas.connect(self.on_kamas_changed)
@@ -39,27 +40,27 @@ class PlayerInfoWidget(PropertyPanelWidget):
     @pyqtSlot(int)
     def on_server_id_changed(self, server_id: int) -> None:
         server = DataReader().server_by_id[server_id]
-        server_name = I18N().name_by_id[server.nameId]
-        self.on_received_property("Player", "Server", server_name)
+        server_name = game_names()[server.nameId]
+        self.on_received_property(tr("Player"), tr("Server"), server_name)
 
     @pyqtSlot(int)
     def on_breed_id_changed(self, breed_id: int) -> None:
         if breed_id == 0:
             return
         breed = DataReader().breed_by_id[breed_id]
-        breed_name = I18N().name_by_id[int(breed.shortNameId)]
-        self.on_received_property("Joueur", "Classe", breed_name)
+        breed_name = game_names()[int(breed.shortNameId)]
+        self.on_received_property(tr("Joueur"), tr("Classe"), breed_name)
 
     @pyqtSlot(int)
     def on_kamas_changed(self, kamas: int) -> None:
-        self.on_received_property("Joueur", "Kamas", f"{kamas:,}".replace(",", " "))
+        self.on_received_property(tr("Joueur"), "Kamas", f"{kamas:,}".replace(",", " "))
 
     @pyqtSlot(int, int)
     def on_job_level_changed(self, job_id: int, job_level: int) -> None:
         if job_id not in _HARVEST_JOB_IDS:
             return
         self.on_received_property(
-            "Gathering professions",
+            tr("Gathering professions"),
             self._get_job_name(JobEnum(job_id)),
             job_level,
         )
@@ -75,7 +76,7 @@ class PlayerInfoWidget(PropertyPanelWidget):
         )
         for job_id in _HARVEST_JOB_IDS:
             self.on_received_property(
-                "Gathering professions",
+                tr("Gathering professions"),
                 self._get_job_name(job_id),
                 job_levels_by_id.get(job_id, "—"),
             )
@@ -113,9 +114,9 @@ class PlayerInfoWidget(PropertyPanelWidget):
         server_id: int,
         kamas: int,
     ) -> None:
-        self.on_received_property("Joueur", "Player id", character_id)
-        self.on_received_property("Player", "Name", character_name)
-        self.on_received_property("Joueur", "Niveau", level)
+        self.on_received_property(tr("Joueur"), tr("Player id"), character_id)
+        self.on_received_property(tr("Player"), tr("Name"), character_name)
+        self.on_received_property(tr("Joueur"), tr("Niveau"), level)
         self.on_breed_id_changed(breed_id)
         self.on_server_id_changed(server_id)
         self.on_kamas_changed(kamas)
@@ -123,4 +124,4 @@ class PlayerInfoWidget(PropertyPanelWidget):
     @staticmethod
     def _get_job_name(job_id: int) -> str:
         job = DataReader().job_by_id[job_id]
-        return I18N().name_by_id[job.nameId]
+        return game_names()[job.nameId]

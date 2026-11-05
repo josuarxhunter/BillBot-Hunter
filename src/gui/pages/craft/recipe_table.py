@@ -1,7 +1,6 @@
 from collections.abc import KeysView
 
 from DBDofusUnity.dofus_unity_reader.data_center.data_reader import DataReader
-from DBDofusUnity.dofus_unity_reader.data_center.i18n import I18N
 from DBDofusUnity.dofus_unity_reader.models.datas.recipe_root import RecipeItem
 from PyQt6 import QtWidgets
 from PyQt6.QtCore import QModelIndex, QObject, Qt, pyqtSignal, pyqtSlot
@@ -11,6 +10,8 @@ from PyQt6.QtWidgets import QHeaderView, QWidget
 from src.core.engine.crafts.recipes import get_benefice_on_craft_recipe
 from src.gui.components.table.column_info import ColumnInfo
 from src.gui.components.table.table import BaseTableWidget
+from src.gui.game_names import game_names
+from src.gui.i18n import tr
 
 
 def _require_recipe_item(value: object) -> RecipeItem:
@@ -27,10 +28,10 @@ class RecipeTable(BaseTableWidget):
     def __init__(self, recipes: list[RecipeItem], parent: QWidget | None = None) -> None:
         super().__init__(parent=parent)
         columns: list[ColumnInfo] = [
-            ColumnInfo(name="Name"),
-            ColumnInfo(name="Profession"),
-            ColumnInfo(name="Niv."),
-            ColumnInfo(name="Profit"),
+            ColumnInfo(name=tr("Name")),
+            ColumnInfo(name=tr("Profession")),
+            ColumnInfo(name=tr("Niv.")),
+            ColumnInfo(name=tr("Profit")),
             ColumnInfo(name="", filter_info=None),
         ]
         self.table.set_columns(columns)
@@ -53,11 +54,11 @@ class RecipeTable(BaseTableWidget):
 
     def add_recipe(self, recipe: RecipeItem) -> None:
         name_id = DataReader().item_by_id[recipe.resultId].nameId
-        recipe_widget_item = QStandardItem(I18N().name_by_id[name_id] if name_id else "")
+        recipe_widget_item = QStandardItem(game_names()[name_id] if name_id else "")
         recipe_widget_item.setData(recipe, role=Qt.ItemDataRole.UserRole)
         self.widget_item_by_recipe[recipe] = recipe_widget_item
 
-        job_name_widget = QStandardItem(I18N().name_by_id[DataReader().job_by_id[recipe.jobId].nameId])
+        job_name_widget = QStandardItem(game_names()[DataReader().job_by_id[recipe.jobId].nameId])
 
         recipe_lvl = QStandardItem(str(DataReader().item_by_id[recipe.resultId].level))
 

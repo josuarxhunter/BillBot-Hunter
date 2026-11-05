@@ -52,13 +52,10 @@ class BinaryReader:
 
 class I18NReader:
     @staticmethod
-    def get_datas() -> None:
+    def read_names(path: Path) -> dict[int, str]:
         name_by_id: dict[int, str] = {}
 
-        with Path(I18N_PATH).open("rb") as file:
-            buffer = file.read()
-
-        reader = BinaryReader(buffer)
+        reader = BinaryReader(path.read_bytes())
 
         lang_size_bytes = reader.read_byte()
         reader.read_bytes(lang_size_bytes)
@@ -77,6 +74,11 @@ class I18NReader:
             text = reader.read_text_at(cursor)
             name_by_id[_id] = text
 
+        return name_by_id
+
+    @staticmethod
+    def get_datas() -> None:
+        name_by_id = I18NReader.read_names(I18N_PATH)
         with I18N_OUTPUT_PATH.open("wb") as file:
             file.write(f"{json.dumps(name_by_id, indent=2, ensure_ascii=False)}\n".encode())
 

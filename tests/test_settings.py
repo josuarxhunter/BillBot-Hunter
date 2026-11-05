@@ -40,9 +40,11 @@ def test_settings_roundtrip_and_failed_write_preserve_previous_configuration(
 ) -> None:
     service = SettingsService()
     assert service.get() == GlobalSettings()
-    service.update_behaviors(BehaviorSettings(do_craft=True, do_fighter=False), True)
+    assert service.get().language == "fr"
+    service.update_behaviors(BehaviorSettings(do_craft=True, do_fighter=False), True, language="es")
     service.update_sonji_key("local-key")
     persisted = GlobalSettings.model_validate_json(settings_module.SETTINGS_PATH.read_text())
+    assert persisted.language == "es"
     assert persisted.behaviors.do_craft
     assert not persisted.behaviors.do_fighter
     assert persisted.enable_account_automation

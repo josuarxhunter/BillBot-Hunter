@@ -16,6 +16,7 @@ from qfluentwidgets import LineEdit
 
 from src.gui.components.qfluent_widget.scrollable_message_box import ScrollableMessageBox
 from src.services.logging_utils.log_level import LogLevel
+from src.gui.i18n import tr
 
 _MAX_LOG_ENTRIES = 5_000
 _LOG_ENTRY_ROLE = int(Qt.ItemDataRole.UserRole)
@@ -158,7 +159,7 @@ class LogsTable(QWidget):
         layout.setSpacing(4)
 
         self.search_edit = LineEdit(self)
-        self.search_edit.setPlaceholderText("Search logs")
+        self.search_edit.setPlaceholderText(tr("Search logs"))
         self.search_edit.setClearButtonEnabled(True)
         layout.addWidget(self.search_edit)
 
@@ -172,7 +173,7 @@ class LogsTable(QWidget):
         self.list_view.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.list_view.setSelectionMode(QAbstractItemView.SelectionMode.NoSelection)
         self.list_view.setVerticalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
-        self.list_view.setToolTip("Click a log to view the full message")
+        self.list_view.setToolTip(tr("Click a log to view the full message"))
         self.list_view.clicked.connect(self._show_message)
         layout.addWidget(self.list_view)
 
@@ -196,7 +197,7 @@ class LogsTable(QWidget):
             entry.message,
             parent,
         )
-        dialog.yesButton.setText("Close")
+        dialog.yesButton.setText(tr("Close"))
         dialog.cancelButton.hide()
         dialog.exec()
         dialog.deleteLater()

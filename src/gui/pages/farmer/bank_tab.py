@@ -9,6 +9,7 @@ from qfluentwidgets import CaptionLabel, ListWidget, SmoothMode
 from src.core.bot.bot import Bot
 from src.gui.consts import CARD_WIDTH
 from src.gui.pages.farmer.equipment_panel_widget import get_item_name
+from src.gui.i18n import tr
 
 CARD_HEIGHT = 80
 
@@ -35,7 +36,7 @@ class BankTab(QWidget):
         self.list_widget.setGridSize(QSize(CARD_WIDTH, CARD_HEIGHT))
 
         self.list_widget.setStyleSheet("QListWidget { background-color: transparent; border: none; }")
-        self.loading_label = CaptionLabel(text="Loading bank…", parent=self)
+        self.loading_label = CaptionLabel(text=tr("Loading bank…"), parent=self)
         self.loading_label.hide()
 
         layout = QVBoxLayout()

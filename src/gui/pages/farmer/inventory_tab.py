@@ -21,6 +21,7 @@ from src.gui.pages.farmer.equipment_panel_widget import (
     EquipmentPanelWidget,
     get_item_name,
 )
+from src.gui.i18n import tr
 
 CARD_HEIGHT = 120
 CARD_SPACING = 10
@@ -59,8 +60,8 @@ class InventoryTab(QWidget):
         self.list_widget.setMaximumWidth(BAG_MAX_WIDTH)
         self.list_widget.setStyleSheet("QListWidget { background-color: transparent; border: none; }")
 
-        self.weight_label = BodyLabel(text="Poids : 0/0", parent=self)
-        self.loading_label = CaptionLabel(text="Loading inventory…", parent=self)
+        self.weight_label = BodyLabel(text=tr("Poids : 0/0"), parent=self)
+        self.loading_label = CaptionLabel(text=tr("Loading inventory…"), parent=self)
         self.loading_label.hide()
         bottom_layout = QHBoxLayout()
         bottom_layout.addWidget(self.weight_label)
@@ -122,7 +123,7 @@ class InventoryTab(QWidget):
         self._refresh_weight_label()
 
     def _refresh_weight_label(self) -> None:
-        self.weight_label.setText(f"Poids : {self.inventory_weight}/{self.weight_max}")
+        self.weight_label.setText(tr("Poids : {weight}/{limit}", weight=self.inventory_weight, limit=self.weight_max))
 
     def _schedule_rebuild(self) -> None:
         self._render_dirty = True

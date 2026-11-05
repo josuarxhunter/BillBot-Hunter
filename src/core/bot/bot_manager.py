@@ -40,6 +40,7 @@ from ankama_launcher_emulator.server.server import (
 
 from src.controller.bot_config import BotConfig, BotConfigService
 from src.controller.player_info_storage import PlayerInfoStorage
+from src.controller.settings import SettingsService
 from src.core.bot.bot import Bot
 from src.core.bot.bot_factory import BotFactory
 from src.core.bot.lifecycle.account_scheduler import AccountScheduler
@@ -275,6 +276,7 @@ class BotManager:
                     self.proxy_listener,
                     proxy_url=socks_proxy_url,
                     on_progress=self.on_progress_installing,
+                    language=SettingsService().get().language,
                 )
                 related_bot.logger.info(f"Pid {related_bot.process_manager.pid}")
                 is_success = self._wait_for_mitm_connection_result(related_bot)

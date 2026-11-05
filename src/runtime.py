@@ -6,6 +6,7 @@ from PyQt6.QtWidgets import QMessageBox
 from qfluentwidgets import Theme, setTheme, setThemeColor
 
 from src.gui.application import Application
+from src.gui.i18n import tr
 from src.gui.main_window import MainWindow
 from src.core.bot.bot_manager import BotManager
 from src.core.bot.lifecycle.scheduler import run_continuously
@@ -51,7 +52,7 @@ def run_gui(
     application.startup_window.close()
     setTheme(Theme.DARK)
     setThemeColor(Qt.GlobalColor.yellow)
-    main_window.set_startup_status("Loading bots…")
+    main_window.set_startup_status(tr("Loading bots…"))
 
     bot_manager: BotManager | None = None
     cease_running = threading.Event()
@@ -93,7 +94,7 @@ def run_gui(
                 main_window.activity_page.refresh,
                 background=False,
             )
-            main_window.set_startup_status("Starting launcher…")
+            main_window.set_startup_status(tr("Starting launcher…"))
             bot_manager.ankama_launcher.start()
             main_window.init_accounts(bot_manager.bot_by_account_id)
             cease_running = run_continuously()
@@ -108,7 +109,7 @@ def run_gui(
             logger.error("Unable to start: %s", message, exc_info=True)
             UserActivityService().record("error", message)
             main_window.splashScreen.finish()
-            QMessageBox.critical(main_window, "Unable to start", message)
+            QMessageBox.critical(main_window, tr("Unable to start"), tr(message))
             main_window.close()
 
     QTimer.singleShot(0, start_runtime)

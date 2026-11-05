@@ -27,6 +27,7 @@ from psutil import CONN_LISTEN, NoSuchProcess, Process, net_connections
 from thrift.protocol import TBinaryProtocol
 from thrift.server import TServer
 from thrift.transport import TSocket, TTransport
+from utils.language import GameLanguage
 
 logger = logging.getLogger()
 
@@ -78,6 +79,8 @@ class AnkamaLauncherServer:
         proxy_listener: ProxyListener,
         proxy_url: str | None = None,
         on_progress: Callable[[str], None] | None = None,
+        *,
+        language: GameLanguage = "fr",
     ) -> int:
         logger.info(f"Launching {login} on dofus 3")
 
@@ -93,6 +96,7 @@ class AnkamaLauncherServer:
             game_id=102,
             api_key=api_key,
             haapi=Haapi(api_key=api_key, login=login, proxy_url=proxy_url),
+            language=language,
         )
 
         connection_port = proxy_listener.start(port=0, proxy_url=proxy_url)
@@ -102,4 +106,5 @@ class AnkamaLauncherServer:
             self.instance_id,
             random_hash,
             connection_port=connection_port,
+            language=language,
         )

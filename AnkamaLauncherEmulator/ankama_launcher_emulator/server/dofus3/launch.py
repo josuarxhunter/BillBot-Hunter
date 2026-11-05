@@ -9,6 +9,7 @@ from ankama_launcher_emulator.interfaces.game import GameNameEnum
 from ankama_launcher_emulator.utils.environment import resolve_dofus_path, ZAAP_PATH
 from src.services.install_validation import check_resource
 from src.utils.project_paths import FRIDA_SCRIPT_PATH
+from utils.language import GameLanguage
 
 logger = logging.getLogger()
 
@@ -17,6 +18,8 @@ def launch_dofus_exe(
     instance_id: int,
     random_hash: str,
     connection_port: int,
+    *,
+    language: GameLanguage = "fr",
 ) -> int:
     log_path = os.path.join(ZAAP_PATH, "gamesLogs", "dofus-dofus3", "dofus.log")
 
@@ -37,7 +40,7 @@ def launch_dofus_exe(
         "-logFile",
         log_path,
         "--langCode",
-        "fr",
+        language,
         "--autoConnectType",
         "2",
         "--connectionPort",

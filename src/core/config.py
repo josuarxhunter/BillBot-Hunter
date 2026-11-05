@@ -1,6 +1,8 @@
 import datetime
 from random import uniform
 
+from utils.language import GameLanguage
+
 from dotenv import load_dotenv
 from pydantic import BaseModel, ConfigDict
 
@@ -35,6 +37,7 @@ class GlobalSettings(BaseModel):
 
     behaviors: BehaviorSettings = BehaviorSettings()
     enable_account_automation: bool = False
+    language: GameLanguage = "fr"
     sonji_api_key: str | None = None
 
 

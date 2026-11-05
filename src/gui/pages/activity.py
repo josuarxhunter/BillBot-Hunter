@@ -28,6 +28,7 @@ from ankama_launcher_emulator.quarantine_signals import (
 )
 from src.services.background import run_in_background
 from src.services.user_activity import UserActivityEntry, UserActivityService
+from src.gui.i18n import get_language, tr
 
 QuarantineRow = tuple[str, str, str]
 
@@ -51,10 +52,10 @@ class ActivityPage(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(24, 24, 24, 24)
         layout.setSpacing(16)
-        layout.addWidget(SubtitleLabel("Activity", self))
+        layout.addWidget(SubtitleLabel(tr("Activity"), self))
         layout.addWidget(
             BodyLabel(
-                "Review recent events and decide what to do with quarantined items.",
+                tr("Review recent events and decide what to do with quarantined items."),
                 self,
             )
         )
@@ -71,16 +72,16 @@ class ActivityPage(QWidget):
         layout.setSpacing(12)
 
         header = QHBoxLayout()
-        header.addWidget(StrongBodyLabel("Recent history", card))
+        header.addWidget(StrongBodyLabel(tr("Recent history"), card))
         header.addStretch()
-        header.addWidget(BodyLabel("Account", card))
+        header.addWidget(BodyLabel(tr("Account"), card))
         self.login_filter = ComboBox(card)
         self.login_filter.setMinimumWidth(190)
         self.login_filter.currentIndexChanged.connect(self._render_activity)
         header.addWidget(self.login_filter)
         layout.addLayout(header)
 
-        self.activity_table = self._create_table(card, ["Date", "Account", "Level", "Event"])
+        self.activity_table = self._create_table(card, [tr("Date"), tr("Account"), tr("Level"), tr("Event")])
         self.activity_table.setMinimumHeight(220)
         layout.addWidget(self.activity_table)
         return card
@@ -92,21 +93,21 @@ class ActivityPage(QWidget):
         layout.setSpacing(12)
 
         header = QHBoxLayout()
-        header.addWidget(StrongBodyLabel("Quarantined items", card))
+        header.addWidget(StrongBodyLabel(tr("Quarantined items"), card))
         header.addStretch()
-        header.addWidget(BodyLabel("No action is taken without confirmation.", card))
+        header.addWidget(BodyLabel(tr("No action is taken without confirmation."), card))
         layout.addLayout(header)
 
-        self.quarantine_table = self._create_table(card, ["Type", "Identifier", "Reason"])
+        self.quarantine_table = self._create_table(card, [tr("Type"), tr("Identifier"), tr("Reason")])
         self.quarantine_table.setMinimumHeight(160)
         self.quarantine_table.itemSelectionChanged.connect(self._select_quarantine)
         layout.addWidget(self.quarantine_table)
 
         actions = QHBoxLayout()
         actions.addStretch()
-        self.restore_button = PrimaryPushButton(FluentIcon.SYNC, "Restore", card)
+        self.restore_button = PrimaryPushButton(FluentIcon.SYNC, tr("Restore"), card)
         self.restore_button.clicked.connect(self._restore_selected)
-        self.delete_button = PushButton(FluentIcon.DELETE, "Delete", card)
+        self.delete_button = PushButton(FluentIcon.DELETE, tr("Delete"), card)
         self.delete_button.clicked.connect(self._delete_selected)
         actions.addWidget(self.restore_button)
         actions.addWidget(self.delete_button)
@@ -184,7 +185,7 @@ class ActivityPage(QWidget):
         logins = sorted({entry.login for entry in self._activity_entries if entry.login is not None})
         self.login_filter.blockSignals(True)
         self.login_filter.clear()
-        self.login_filter.addItem("Tous", userData=None)
+        self.login_filter.addItem(tr("Tous"), userData=None)
         for login in logins:
             self.login_filter.addItem(login, userData=login)
         self.login_filter.setCurrentIndex(max(self.login_filter.findData(current_login), 0))
@@ -218,8 +219,8 @@ class ActivityPage(QWidget):
     def _activity_row(entry: UserActivityEntry) -> tuple[str, str, str, str]:
         return (
             entry.happened_at.astimezone().strftime("%d/%m %H:%M:%S"),
-            entry.login or "Application",
-            entry.severity,
+            entry.login or tr("Application"),
+            tr(entry.severity.title()) if get_language() == "es" else entry.severity,
             entry.message,
         )
 
@@ -264,7 +265,7 @@ class ActivityPage(QWidget):
         )
 
         self.quarantine_table.blockSignals(True)
-        self._set_table_rows(self.quarantine_table, quarantined)
+        self._set_table_rows(self.quarantine_table, [(tr(kind), key, reason) for kind, key, reason in quarantined])
         if selected_row is not None:
             self.quarantine_table.selectRow(selected_row)
         self.quarantine_table.blockSignals(False)
@@ -303,12 +304,12 @@ class ActivityPage(QWidget):
             return
         kind, identifier = self._selected_target
         confirmation = MessageBox(
-            "Delete permanently",
-            f"Permanently delete {identifier}? This action cannot be undone.",
+            tr("Delete permanently"),
+            tr("Permanently delete {identifier}? This action cannot be undone.", identifier=identifier),
             self,
         )
-        confirmation.yesButton.setText("Delete")
-        confirmation.cancelButton.setText("Cancel")
+        confirmation.yesButton.setText(tr("Delete"))
+        confirmation.cancelButton.setText(tr("Cancel"))
         if not confirmation.exec():
             return
         if kind == "Account":

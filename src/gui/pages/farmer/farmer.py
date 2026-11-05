@@ -11,7 +11,6 @@ from qfluentwidgets import (
 )
 
 from DBDofusUnity.dofus_unity_reader.data_center.data_reader import DataReader
-from DBDofusUnity.dofus_unity_reader.data_center.i18n import I18N
 from src.core import config
 from src.core.behaviors.behavior_factory import USABLE_BEHAVIORS
 from src.core.bot.bot import Bot
@@ -20,6 +19,8 @@ from src.gui.pages.farmer.inventory_tab import InventoryTab
 from src.gui.pages.farmer.map_tab import MapTab
 from src.gui.pages.farmer.player_tab import PlayerTab
 from src.gui.pages.farmer.world_tab import WorldTab
+from src.gui.game_names import game_names
+from src.gui.i18n import tr
 
 
 class FarmActionEnum(StrEnum):
@@ -87,12 +88,11 @@ class FarmerWidget(QWidget):
 
         self.type_action_combo = ComboBox(top_widget)
         for farm_action in FarmActionEnum:
-            self.type_action_combo.addItem(farm_action)
+            self.type_action_combo.addItem(tr(farm_action), userData=farm_action)
 
         for usable_behavior in USABLE_BEHAVIORS:
-            self.type_action_combo.addItem(usable_behavior.__name__)
+            self.type_action_combo.addItem(tr(usable_behavior.__name__), userData=usable_behavior.__name__)
 
-        self.type_action_combo.setCurrentText(FarmActionEnum.AUTO)
         self.type_action_combo.currentIndexChanged.connect(self.on_type_action_changed)
         top_widget_layout.addWidget(self.type_action_combo)
 
@@ -104,9 +104,9 @@ class FarmerWidget(QWidget):
 
         for area in sorted(
             DataReader().area_by_id.values(),
-            key=lambda area: I18N().name_by_id.get(area.nameId, "Unknown"),
+            key=lambda area: game_names().get(area.nameId, tr("Unknown")),
         ):
-            self.area_farm_combo.addItem(I18N().name_by_id.get(area.nameId, "Unknown"), userData=area.id)
+            self.area_farm_combo.addItem(game_names().get(area.nameId, tr("Unknown")), userData=area.id)
 
         top_widget_layout.addWidget(self.area_farm_combo)
 
@@ -124,7 +124,7 @@ class FarmerWidget(QWidget):
 
     @pyqtSlot()
     def on_type_action_changed(self) -> None:
-        current_action = self.type_action_combo.currentText()
+        current_action = self.type_action_combo.currentData()
         if current_action not in FarmActionEnum or current_action in [
             CraftActionEnum.CRAFTER,
             FarmActionEnum.AUTO,
@@ -149,25 +149,26 @@ class FarmerWidget(QWidget):
         self.sub_area_farm_combo.addItem("")
         for sub_area in sorted(
             DataReader().sub_area_by_id.values(),
-            key=lambda subarea: I18N().name_by_id.get(subarea.nameId, ""),
+            key=lambda subarea: game_names().get(subarea.nameId, ""),
         ):
             if sub_area.areaId != current_area_id:
                 continue
-            self.sub_area_farm_combo.addItem(I18N().name_by_id[sub_area.nameId], userData=sub_area.id)
+            self.sub_area_farm_combo.addItem(game_names()[sub_area.nameId], userData=sub_area.id)
 
     @pyqtSlot()
     def on_click_play(self) -> None:
         area_id = self.area_farm_combo.currentData()
         sub_area_id = self.sub_area_farm_combo.currentData()
         self.bot.bot_signals.play.emit(True)
-        if self.type_action_combo.currentText() == FarmActionEnum.HARVESTER:
+        action = self.type_action_combo.currentData()
+        if action == FarmActionEnum.HARVESTER:
             self.bot.bot_signals.play_harvester.emit(area_id, sub_area_id)
-        elif self.type_action_combo.currentText() == FarmActionEnum.FIGHTER:
+        elif action == FarmActionEnum.FIGHTER:
             self.bot.bot_signals.play_fighter.emit(area_id, sub_area_id)
-        elif self.type_action_combo.currentText() == FarmActionEnum.AUTO:
+        elif action == FarmActionEnum.AUTO:
             self.bot.bot_signals.play_auto_bot.emit()
-        elif self.type_action_combo.currentText() not in FarmActionEnum:
-            self.bot.bot_signals.play_usable_behavior.emit(self.type_action_combo.currentText())
+        elif action not in FarmActionEnum:
+            self.bot.bot_signals.play_usable_behavior.emit(action)
 
     @pyqtSlot(bool)
     def on_play(self, _: bool) -> None:
@@ -179,23 +180,23 @@ class FarmerWidget(QWidget):
 
     @pyqtSlot(object, object)
     def on_play_harvester(self, area_id: int | None, sub_area_id: int | None) -> None:
-        self.type_action_combo.setCurrentText(FarmActionEnum.HARVESTER)
+        self.type_action_combo.setCurrentIndex(self.type_action_combo.findData(FarmActionEnum.HARVESTER))
         self.on_played_zone(area_id, sub_area_id)
 
     @pyqtSlot(object, object)
     def on_play_fighter(self, area_id: int | None, sub_area_id: int | None) -> None:
-        self.type_action_combo.setCurrentText(FarmActionEnum.FIGHTER)
+        self.type_action_combo.setCurrentIndex(self.type_action_combo.findData(FarmActionEnum.FIGHTER))
         self.on_played_zone(area_id, sub_area_id)
 
     @pyqtSlot()
     def on_play_auto(self) -> None:
-        self.type_action_combo.setCurrentText(FarmActionEnum.AUTO)
+        self.type_action_combo.setCurrentIndex(self.type_action_combo.findData(FarmActionEnum.AUTO))
         self.on_played_zone(None, None)
 
     @pyqtSlot(object)
     def on_play_craft(self, _: object) -> None:
-        self.type_action_combo.addItem(CraftActionEnum.CRAFTER)
-        self.type_action_combo.setCurrentText(CraftActionEnum.CRAFTER)
+        self.type_action_combo.addItem(tr(CraftActionEnum.CRAFTER), userData=CraftActionEnum.CRAFTER)
+        self.type_action_combo.setCurrentIndex(self.type_action_combo.findData(CraftActionEnum.CRAFTER))
 
     def on_played_zone(self, area_id: int | None, sub_area_id: int | None) -> None:
         if area_id is not None:
@@ -212,7 +213,7 @@ class FarmerWidget(QWidget):
     def on_stop(self) -> None:
         self.play_btn.show()
         self.stop_btn.hide()
-        index_crafter = self.type_action_combo.findText(CraftActionEnum.CRAFTER)
+        index_crafter = self.type_action_combo.findData(CraftActionEnum.CRAFTER)
         if index_crafter != -1:
             self.type_action_combo.removeItem(index_crafter)
         self.type_action_combo.setDisabled(False)
@@ -247,24 +248,24 @@ class FarmerWidget(QWidget):
         )
         self.stacked_widget.addWidget(self.map_tab)
         self.map_route = f"{self.objectName()}_map_tab"
-        self._add_debug_tab(self.map_route, "Map", self.map_tab)
+        self._add_debug_tab(self.map_route, tr("Map"), self.map_tab)
 
         self.player_tab = PlayerTab(bot=self.bot, parent=self.stacked_widget)
         self.stacked_widget.addWidget(self.player_tab)
         player_route = f"{self.objectName()}_player_tab"
-        self._add_debug_tab(player_route, "Joueur", self.player_tab)
+        self._add_debug_tab(player_route, tr("Joueur"), self.player_tab)
 
         self.world_tab = WorldTab(world_signals=self.bot.world_signals, parent=self.stacked_widget)
         self.stacked_widget.addWidget(self.world_tab)
         world_route = f"{self.objectName()}_world_tab"
-        self._add_debug_tab(world_route, "Monde", self.world_tab)
+        self._add_debug_tab(world_route, tr("Monde"), self.world_tab)
 
         self.inventory_tab = InventoryTab(self.bot, parent=self.stacked_widget)
         self.stacked_widget.addWidget(self.inventory_tab)
         inventory_route = f"{self.objectName()}_inventory_tab"
         self._add_debug_tab(
             inventory_route,
-            "Inventaire",
+            tr("Inventaire"),
             self.inventory_tab,
             self._show_inventory_tab,
         )
@@ -272,7 +273,7 @@ class FarmerWidget(QWidget):
         self.bank_tab = BankTab(self.bot, parent=self.stacked_widget)
         self.stacked_widget.addWidget(self.bank_tab)
         bank_route = f"{self.objectName()}_bank_tab"
-        self._add_debug_tab(bank_route, "Banque", self.bank_tab, self._show_bank_tab)
+        self._add_debug_tab(bank_route, tr("Banque"), self.bank_tab, self._show_bank_tab)
 
         for pivot_item in self.pivot.items.values():
             pivot_item.setFixedHeight(40)

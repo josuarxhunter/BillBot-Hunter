@@ -49,6 +49,7 @@ from qfluentwidgets.components.widgets.tool_tip import ToolTipFilter
 from src.gui.components.qfluent_widget.no_animated_scroll_area import (
     NoAnimatedScrollArea,
 )
+from src.gui.i18n import tr
 
 
 class SidebarPanel(QFrame):
@@ -116,10 +117,10 @@ class SidebarPanel(QFrame):
         self.returnButton.clicked.connect(self.history.pop)
 
         self.returnButton.installEventFilter(ToolTipFilter(self.returnButton, 0))
-        self.returnButton.setToolTip(self.tr("Retour"))
+        self.returnButton.setToolTip(tr("Retour"))
 
         self.menuButton.installEventFilter(ToolTipFilter(self.menuButton, 0))
-        self.menuButton.setToolTip(self.tr("Open navigation"))
+        self.menuButton.setToolTip(tr("Open navigation"))
 
         self.setProperty("menu", False)
         self.scrollWidget.setObjectName("scrollWidget")
@@ -361,7 +362,7 @@ class SidebarPanel(QFrame):
     def expand(self, useAni: bool = True) -> None:
         self._setWidgetCompacted(False)
         self.expandAni.setProperty("expand", True)
-        self.menuButton.setToolTip(self.tr("Close navigation"))
+        self.menuButton.setToolTip(tr("Close navigation"))
 
         expandWidth = self.minimumExpandWidth + self.expandWidth - 322
         window = self.window()
@@ -413,7 +414,7 @@ class SidebarPanel(QFrame):
         self.expandAni.setProperty("expand", False)
         self.expandAni.start()
 
-        self.menuButton.setToolTip(self.tr("Open navigation"))
+        self.menuButton.setToolTip(tr("Open navigation"))
 
     def toggle(self) -> None:
         if self.displayMode in [

@@ -11,15 +11,16 @@ from src.core.events_manager.listener import Listener
 from src.gui.components.listener_details_box import ListenerDetailsBox
 from src.gui.components.table.column_info import ColumnInfo
 from src.gui.components.table.table import BaseTableWidget
+from src.gui.i18n import tr
 
 
 class ListenersStatsTable(BaseTableWidget):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent=parent)
         columns: list[ColumnInfo] = [
-            ColumnInfo(name="Heure d'enregistrement"),
-            ColumnInfo(name="Origine"),
-            ColumnInfo(name="Message type"),
+            ColumnInfo(name=tr("Heure d'enregistrement")),
+            ColumnInfo(name=tr("Origine")),
+            ColumnInfo(name=tr("Message type")),
         ]
         self.table.set_columns(columns)
         self.table.setEditTriggers(TableWidget.EditTrigger.NoEditTriggers)

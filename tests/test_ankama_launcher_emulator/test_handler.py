@@ -20,6 +20,14 @@ class TestAnkamaLauncherHandler(TestCase):
             haapi=haapi,
         )
 
+    def test_game_language_uses_the_session_language(self) -> None:
+        handler = AnkamaLauncherHandler()
+        self._register_session(handler, MagicMock())
+        session = handler.infos_by_hash["session-hash"]
+        self.assertEqual(handler.settings_get("session-hash", "language"), '"fr"')
+        session.language = "es"
+        self.assertEqual(handler.settings_get("session-hash", "language"), '"es"')
+
     def test_auth_get_game_token_uses_the_stored_certificate(self) -> None:
         handler = AnkamaLauncherHandler()
         certificate = DecipheredCertif(

@@ -13,6 +13,7 @@ from src.gui.components.qfluent_widget.scrollable_message_box import (
     ScrollableMessageBox,
 )
 from src.gui.pages.farmer.player_info.property_panel_widget import PropertyPanelWidget
+from src.gui.i18n import tr
 
 
 class MapTab(QWidget):
@@ -60,29 +61,29 @@ class MapTab(QWidget):
     def _connect_info_signals(self) -> None:
         self.grid_signals.new_map_id.connect(self.on_map_id_changed)
         self.grid_signals.is_in_map_transition.connect(
-            partial(self.info_panel.on_received_property, "", "Map transition in progress")
+            partial(self.info_panel.on_received_property, "", tr("Map transition in progress"))
         )
         self.game_info_signals.is_in_haven_bag.connect(
-            partial(self.info_panel.on_received_property, "", "Inside the Haven Bag")
+            partial(self.info_panel.on_received_property, "", tr("Inside the Haven Bag"))
         )
 
-        self.combat_group = self.info_panel.pre_create_group("Combat")
+        self.combat_group = self.info_panel.pre_create_group(tr("Combat"))
         self.combat_group.hide()
         self.game_info_signals.in_fight.connect(self.on_in_fight_changed)
         self.game_info_signals.is_our_turn.connect(
-            partial(self.info_panel.on_received_property, "Combat", "Our turn")
+            partial(self.info_panel.on_received_property, tr("Combat"), tr("Our turn"))
         )
         self.game_info_signals.life_point.connect(
-            partial(self.info_panel.on_received_property, "Combat", "Health")
+            partial(self.info_panel.on_received_property, tr("Combat"), tr("Health"))
         )
         self.game_info_signals.max_life_point.connect(
-            partial(self.info_panel.on_received_property, "Combat", "Maximum health")
+            partial(self.info_panel.on_received_property, tr("Combat"), tr("Maximum health"))
         )
         self.game_info_signals.action_points.connect(
-            partial(self.info_panel.on_received_property, "Combat", "AP")
+            partial(self.info_panel.on_received_property, tr("Combat"), tr("AP"))
         )
         self.game_info_signals.movement_points.connect(
-            partial(self.info_panel.on_received_property, "Combat", "MP")
+            partial(self.info_panel.on_received_property, tr("Combat"), tr("MP"))
         )
 
     @pyqtSlot(bool)
@@ -92,8 +93,8 @@ class MapTab(QWidget):
     @pyqtSlot(int)
     def on_map_id_changed(self, map_id: int) -> None:
         map_position = DataReader().map_info_by_map_id[map_id]
-        self.info_panel.on_received_property("", "Map id", map_id)
-        self.info_panel.on_received_property("", "Coordinates", f"({map_position.posX}, {map_position.posY})")
+        self.info_panel.on_received_property("", tr("Map id"), map_id)
+        self.info_panel.on_received_property("", tr("Coordinates"), f"({map_position.posX}, {map_position.posY})")
 
     @pyqtSlot(int)
     def on_cell_id_clicked(self, cell_id: int) -> None:
@@ -104,7 +105,7 @@ class MapTab(QWidget):
                 content = str(self.game_state.entity.actor_fight_by_id[actor.actor_id])
             else:
                 content = str(actor)
-            ScrollableMessageBox(f"Actor on cell {cell_id}", content, self).exec()
+            ScrollableMessageBox(tr("Actor on cell {cell}", cell=cell_id), content, self).exec()
             return
 
         stated_elements = self.game_state.interactive.stated_element_by_cell_id.get(cell_id)
@@ -112,5 +113,5 @@ class MapTab(QWidget):
             stated_element, collectable = next(iter(stated_elements.values()))
             content = str(stated_element)
             if collectable is not None:
-                content += f"\n\nCollectable: {collectable}"
-            ScrollableMessageBox(f"Interactive on cell {cell_id}", content, self).exec()
+                content += "\n\n" + tr("Collectable: {name}", name=collectable)
+            ScrollableMessageBox(tr("Interactive on cell {cell}", cell=cell_id), content, self).exec()

@@ -9,6 +9,7 @@ from src.gui.fragments.account_quick_info import AccountQuickInfoWidget
 from src.gui.pages.craft.craft_page import CraftPage
 from src.gui.pages.debugs.sniffer import SnifferWidget
 from src.gui.pages.farmer.farmer import FarmerWidget
+from src.gui.i18n import tr
 
 
 class AccountStackedWidget(QWidget):
@@ -57,7 +58,7 @@ class AccountStackedWidget(QWidget):
         self.farmer_pivot_item = self._require_pivot_item(
             self.pivot.addItem(
                 routeKey=self.harvester_route,
-                text="Farmer",
+                text=tr("Farmer"),
                 onClick=lambda: self.stacked_widget.setCurrentWidget(self.harvester_interface),
             ),
             self.harvester_route,
@@ -72,7 +73,7 @@ class AccountStackedWidget(QWidget):
         self._require_pivot_item(
             self.pivot.addItem(
                 routeKey=self.craft_route,
-                text="Craft",
+                text=tr("Craft"),
                 onClick=lambda: self.stacked_widget.setCurrentWidget(self.craft_interface),
             ),
             self.craft_route,
@@ -90,7 +91,7 @@ class AccountStackedWidget(QWidget):
         self._require_pivot_item(
             self.pivot.addItem(
                 routeKey=self.sniffer_route,
-                text="Debug",
+                text=tr("Debug"),
                 onClick=lambda: self.stacked_widget.setCurrentWidget(sniffer_interface),
             ),
             self.sniffer_route,

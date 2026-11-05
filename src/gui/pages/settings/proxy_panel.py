@@ -5,6 +5,7 @@ from qfluentwidgets import BodyLabel
 
 from src.controller.settings_deletion import delete_proxy
 from src.gui.pages.settings.settings_panel import SettingsPanel
+from src.gui.i18n import tr
 
 
 class ProxySettingsPanel(SettingsPanel):
@@ -12,18 +13,18 @@ class ProxySettingsPanel(SettingsPanel):
 
     def __init__(self) -> None:
         super().__init__(
-            "Proxies are assigned to schedule profiles. Active connections keep their proxy until they reconnect."
+            tr("Proxies are assigned to schedule profiles. Active connections keep their proxy until they reconnect.")
         )
         self.entries: dict[str, PersistedProxy] = {}
-        self.selection = self.overview(["Identifier", "Host", "HTTP port", "SOCKS port", "Status"], "New proxy…")
-        self.identifier = self.line("Identifier")
-        self.host = self.line("Host")
-        self.http_port = self.line("Port HTTP")
-        self.socks_port = self.line("Port SOCKS")
-        self.username = self.line("Username")
-        self.password = self.line("Password")
+        self.selection = self.overview([tr("Identifier"), tr("Host"), tr("HTTP port"), tr("SOCKS port"), tr("Status")], tr("New proxy…"))
+        self.identifier = self.line(tr("Identifier"))
+        self.host = self.line(tr("Host"))
+        self.http_port = self.line(tr("Port HTTP"))
+        self.socks_port = self.line(tr("Port SOCKS"))
+        self.username = self.line(tr("Username"))
+        self.password = self.line(tr("Password"))
         self.state = BodyLabel("", self)
-        self.form.addRow(BodyLabel("Status", self), self.state)
+        self.form.addRow(BodyLabel(tr("Status"), self), self.state)
         self.selection.selected.connect(self.select)
         self.bind_deletion(self.selection, delete_proxy, self.changed.emit)
 
@@ -32,7 +33,7 @@ class ProxySettingsPanel(SettingsPanel):
             self.entries = entries
             self.selection.set_rows([
                 (identifier, (identifier, proxy.host, str(proxy.http_port), str(proxy.socks_port),
-                              "Rejected" if proxy.rejected else "Available"))
+                              tr("Rejected") if proxy.rejected else tr("Available")))
                 for identifier, proxy in sorted(entries.items())
             ])
             self.select()
@@ -49,7 +50,7 @@ class ProxySettingsPanel(SettingsPanel):
         self.socks_port.setText(str(proxy.socks_port) if proxy else "")
         self.username.setText(proxy.username if proxy else "")
         self.password.setText(proxy.password if proxy else "")
-        self.state.setText("Rejected" if proxy and proxy.rejected else "Available")
+        self.state.setText(tr("Rejected") if proxy and proxy.rejected else tr("Available"))
 
     def save(self) -> None:
         try:

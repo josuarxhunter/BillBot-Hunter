@@ -9,6 +9,7 @@ from qfluentwidgets.components.dialog_box.dialog import MessageBox
 from src.gui.pages.settings.settings_overview import SettingsOverview
 from src.services.background import run_in_background
 from src.utils.runtime_support import RuntimeSetupError, error_message
+from src.gui.i18n import tr
 
 
 class SettingsPanel(QWidget):
@@ -33,8 +34,8 @@ class SettingsPanel(QWidget):
         layout.addSpacing(20)
         buttons_layout = QHBoxLayout()
         buttons_layout.addSpacing(8)
-        self.save_button = PrimaryPushButton("Save", self)
-        self.cancel_button = PushButton("Cancel / refresh", self)
+        self.save_button = PrimaryPushButton(tr("Save"), self)
+        self.cancel_button = PushButton(tr("Cancel / refresh"), self)
         buttons_layout.addWidget(self.save_button)
         buttons_layout.addSpacing(8)
         buttons_layout.addWidget(self.cancel_button)
@@ -71,12 +72,12 @@ class SettingsPanel(QWidget):
     ) -> None:
         def request(identifier: str) -> None:
             confirmation = MessageBox(
-                "Delete permanently",
-                f"Permanently delete {identifier}? This action cannot be undone.",
+                tr("Delete permanently"),
+                tr("Permanently delete {identifier}? This action cannot be undone.", identifier=identifier),
                 self.window(),
             )
-            confirmation.yesButton.setText("Delete")
-            confirmation.cancelButton.setText("Cancel")
+            confirmation.yesButton.setText(tr("Delete"))
+            confirmation.cancelButton.setText(tr("Cancel"))
             if not confirmation.exec():
                 return
 
@@ -97,7 +98,7 @@ class SettingsPanel(QWidget):
         background: bool = True,
     ) -> None:
         self.setEnabled(False)
-        self.status.setText("In progress…")
+        self.status.setText(tr("In progress…"))
 
         def work(_: Callable[[str], None]) -> ResultT:
             try:
@@ -114,7 +115,7 @@ class SettingsPanel(QWidget):
 
         def failure(error: object) -> None:
             self.setEnabled(True)
-            self.status.setText(error_message(error))
+            self.status.setText(tr(error_message(error)))
 
         if background:
             run_in_background(work, on_success=success, on_error=failure, parent=self)
@@ -137,5 +138,5 @@ class SettingsPanel(QWidget):
     def save(self) -> None:
         raise NotImplementedError
 
-    def invalid(self, message: str = "Check the numeric field values.") -> None:
-        self.status.setText(message)
+    def invalid(self, message: str | None = None) -> None:
+        self.status.setText(message if message is not None else tr("Check the numeric field values."))
