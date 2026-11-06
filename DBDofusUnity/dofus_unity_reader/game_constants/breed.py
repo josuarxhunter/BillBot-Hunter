@@ -10,6 +10,7 @@ class BreedEnum(IntEnum):
     IOP = Breed.IOP + 1
     CRA = Breed.CRA + 1
     XELOR = Breed.XELOR + 1
+    FORGELANCE = 20  # CharacterLook and BreedsDataRoot use a different ID from the login enum.
 
 
 DEFAULT_SACRIEUR_COSMETIC_ID = 169

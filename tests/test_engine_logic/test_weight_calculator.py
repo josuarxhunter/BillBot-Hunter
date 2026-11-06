@@ -380,10 +380,13 @@ class TestCalculateAttackWeight:
 
         assert weight == pytest.approx(100.0)  # pyright: ignore[reportUnknownMemberType]
 
-    def test_ally_in_aoe_penalises_weight(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    @pytest.mark.parametrize(("target_mask", "penalized"), [("a,A", True), ("A", False)])
+    def test_ally_in_aoe_only_penalises_spells_that_can_hit_them(
+        self, monkeypatch: pytest.MonkeyPatch, target_mask: str, penalized: bool
+    ) -> None:
         _stub_no_type_effect(monkeypatch)
 
-        effect = _make_effect()
+        effect = msgspec.structs.replace(_make_effect(), targetMask=target_mask)
         spell_lvl = _make_spell([effect])
 
         damage_calculator = MagicMock()
@@ -419,4 +422,4 @@ class TestCalculateAttackWeight:
             modifiers=_make_modifiers(ap_cost=1),
         )
 
-        assert 0 < weight < weight_without_ally
+        assert (0 < weight < weight_without_ally) if penalized else (weight == weight_without_ally)

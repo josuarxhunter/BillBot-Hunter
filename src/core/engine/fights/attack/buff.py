@@ -3,7 +3,7 @@ from DBDofusUnity.dofus_unity_reader.models.datas.spell_levels_root import (
     SpellLevelsRootItem,
 )
 from src.core.engine.contexts import AttackContext
-from src.core.engine.fights.attack.spell_filter import collect_castable_spells
+from src.core.engine.fights.attack.spell_filter import collect_castable_self_spells
 from src.core.engine.fights.effect import (
     can_self_cast,
     is_offensive_self_buff_effect,
@@ -19,4 +19,4 @@ def _self_beneficial_effect(effect: Effect) -> bool:
 def get_valid_self_buff_spells_for_turn(
     context: AttackContext,
 ) -> list[tuple[SpellLevelsRootItem, Effect, SpellModifiers]]:
-    return collect_castable_spells(context, _self_beneficial_effect)
+    return collect_castable_self_spells(context, _self_beneficial_effect)

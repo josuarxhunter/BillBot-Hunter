@@ -8,6 +8,8 @@ from DBDofusUnity.dofus_unity_reader.game_constants.characteristic import Charac
 from DBDofusUnity.dofus_unity_reader.grid.map_point import MapPoint
 from src.core.behaviors.farms.fight.fight_listener_behavior import FightListenerBehavior
 from src.core.behaviors.movements.map_move_behavior import MapMoveBehavior
+from src.core.engine.contexts import AttackContext
+from src.core.engine.fights.attack.positions import get_movable_mps, get_positions
 from src.core.engine.fights.reachable_cells.fight_reachable_cells import (
     FightReachableCells,
 )
@@ -87,6 +89,27 @@ class FightMovementBehavior(FightListenerBehavior):
             allow_diag=False,
             allow_trough_entity=False,
         )
+
+    def find_advance_path(self, context: AttackContext) -> MovementPath | None:
+        targets = {
+            enemy.map_point
+            for enemy in context.enemies_data
+            if not enemy.is_hidden and not enemy.is_invulnerable
+        }
+        if not targets or context.movement_points <= 0:
+            return None
+
+        def distance(mp: MapPoint) -> float:
+            return min(mp.distance_to_map_point(target) for target in targets)
+
+        reachable = get_movable_mps(context, get_positions(context), self.fight_reachable_cells)
+        target_mp = min(reachable, key=lambda mp: (distance(mp), -reachable[mp], mp.cell_id))
+        if distance(target_mp) >= distance(context.player_map_point):
+            return None
+        path = self.find_path_to_cell(target_mp)
+        if path.end == target_mp and 0 < len(path.path) <= context.movement_points:
+            return path
+        return None
 
     def find_safest_path(self) -> MovementPath | None:
         self.logger.info("Finding safest path")

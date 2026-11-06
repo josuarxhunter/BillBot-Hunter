@@ -10,6 +10,7 @@ from DBDofusUnity.dofus_unity_reader.models.datas.spell_levels_root import (
     SpellLevelsRootItem,
 )
 from src.core.engine.fights.effect import is_heal_effect, resolve_effect_element
+from src.core.engine.fights.forgelance import can_use_armed_attack
 from src.core.engine.fights.zones.cross import Cross
 from src.core.engine.fights.zones.lozenge import Lozenge
 
@@ -120,7 +121,7 @@ def get_possible_mp_spell(
 
 
 def get_damage_spells(
-    spells: list[SpellItem], primary_elem: EffectElement
+    spells: list[SpellItem], primary_elem: EffectElement, own_state_ids: frozenset[int]
 ) -> list[tuple[SpellLevelsRootItem, Effect]]:
     spell_levels: list[tuple[SpellLevelsRootItem, Effect]] = []
     for spell in spells:
@@ -128,7 +129,7 @@ def get_damage_spells(
             continue
         spell_lvl = DataReader().spell_lvl_by_spell_id[spell.spell_id][spell.spell_level - 1]
 
-        if spell_lvl.statesCriterion != "":
+        if spell_lvl.statesCriterion and not can_use_armed_attack(spell_lvl, own_state_ids):
             continue
         for effect in spell_lvl.effects:
             data_effect = DataReader().effect_by_id[effect.effectId]

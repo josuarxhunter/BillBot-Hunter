@@ -1,10 +1,12 @@
 import datetime
 from random import uniform
+from enum import StrEnum
+from typing import Self
 
 from utils.language import GameLanguage
 
 from dotenv import load_dotenv
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from DBDofusUnity.dofus_unity_reader.game_constants.job import JobEnum
 from DBDofusUnity.dofus_unity_reader.game_constants.map_id import MapIdEnum
@@ -32,6 +34,26 @@ class BehaviorSettings(BaseModel):
     enable_auto_paysafecard_subscriptions: bool = False
 
 
+class RouteFailureAction(StrEnum):
+    STOP = "stop"
+    WAIT = "wait"
+    CHANGE_AREA = "change_area"
+
+
+class ConfigurableAutoSettings(BaseModel):
+    model_config = ConfigDict(frozen=True, strict=True, extra="forbid")
+
+    area_id: int | None = None
+    sub_area_id: int | None = None
+    on_route_failure: RouteFailureAction = RouteFailureAction.STOP
+
+    @model_validator(mode="after")
+    def validate_zone(self) -> Self:
+        if self.sub_area_id is not None and self.area_id is None:
+            raise ValueError("A subarea requires an area.")
+        return self
+
+
 class GlobalSettings(BaseModel):
     model_config = ConfigDict(frozen=True, strict=True, extra="forbid")
 
@@ -39,6 +61,7 @@ class GlobalSettings(BaseModel):
     enable_account_automation: bool = False
     language: GameLanguage = "fr"
     sonji_api_key: str | None = None
+    configurable_auto_by_account: dict[str, ConfigurableAutoSettings] = Field(default_factory=dict)
 
 
 FIGHT_GROUP_LVL_MULTIPLIER = 2

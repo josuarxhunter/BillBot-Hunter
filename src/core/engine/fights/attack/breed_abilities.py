@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from DBDofusUnity.dofus_unity_reader.game_constants.breed import BreedEnum
 
 from src.core.engine.contexts import AttackContext
-from src.core.engine.fights.attack.breed import sacrier
+from src.core.engine.fights.attack.breed import forgelance, sacrier
 from src.core.engine.fights.attack.breed.types import ReservedApProvider, SupportAction, SupportActionRule
 from src.core.engine.fights.damage_calculator import DamageCalculator
 from src.core.engine.fights.reachable_cells.fight_reachable_cells import FightReachableCells
@@ -15,6 +15,7 @@ _BREED_RULES: dict[int, list[SupportActionRule]] = {
 
 _BREED_URGENT_RULES: dict[int, list[SupportActionRule]] = {
     BreedEnum.SACRIER: sacrier.URGENT_RULES,
+    BreedEnum.FORGELANCE: forgelance.URGENT_RULES,
 }
 
 _RESERVED_AP_PROVIDERS: dict[int, ReservedApProvider] = {

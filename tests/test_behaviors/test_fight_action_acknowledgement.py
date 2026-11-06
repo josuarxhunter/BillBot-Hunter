@@ -40,6 +40,7 @@ from src.core.events_manager.event_manager import EventManager
 from src.core.frames.entity_frame import EntityFrame
 from src.core.states.game_state import GameState
 from src.services.human_timings import HumanTimingsService
+from src.services.user_activity import UserActivityService
 from tests.fixtures.game_state import GameStateContext, set_game_state
 
 PLAYER_ID = -1
@@ -554,3 +555,58 @@ class TestFightActionAcknowledgement:
         assert not any(isinstance(sent_message, MapMovementRequest) for sent_message in sent_messages)
         assert fight_movement_behavior.state == BehaviorState.STOPPED
         assert map_move_behavior.state == BehaviorState.STOPPED
+
+def test_turn_moves_toward_enemy_and_replans_when_no_spell_can_hit(
+    runtime_bot: Bot, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    game = runtime_bot.game_state
+    set_game_state(game, player_cell_id=318, enemy_cell_ids=[399], include_spell_ids=[])
+    turn = runtime_bot.fight_behavior.fight_turn_behavior
+    movement = turn.fight_movement_behavior
+    sent_messages: list[Message] = []
+    runtime_bot.event_manager.on_send_game_callback = sent_messages.append
+    path = movement.find_advance_path(game.get_attack_context())
+    assert path is not None
+    enemy = MapPoint.from_cell_id(399)
+    assert path.end.distance_to_map_point(enemy) < path.start.distance_to_map_point(enemy)
+    move = MagicMock()
+    monkeypatch.setattr(movement, "start", move)
+
+    turn.start(parent=None, callback=None)
+    assert move.call_args.kwargs["move_path"] == path
+    assert sent_messages == []
+    _set_player_cell(game, path.end.cell_id)
+    done = cast(Callable[[str | None], None], move.call_args.kwargs["callback"])
+    done(None)
+
+    assert turn.did_advance
+    assert any(isinstance(msg, FightTurnFinishRequest) for msg in sent_messages)
+    assert move.call_count == 1
+    turn.stop()
+
+
+def test_mitm_pauses_after_three_turns_without_progress(
+    runtime_bot: Bot, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fight = runtime_bot.fight_behavior
+    game = runtime_bot.game_state
+    game.fight.in_fight = True
+    play_turn = MagicMock()
+    pause = MagicMock()
+    record = MagicMock()
+    monkeypatch.setattr(fight.fight_turn_behavior, "start", play_turn)
+    monkeypatch.setattr(fight, "pause_automation", pause)
+    monkeypatch.setattr(UserActivityService, "record", record)
+
+    for turn in range(1, 4):
+        game.fight.fight_turn = turn
+        fight.on_player_turn()
+    assert play_turn.call_count == 3
+    pause.assert_not_called()
+
+    game.fight.fight_turn = 4
+    fight.on_player_turn()
+
+    pause.assert_called_once_with()
+    assert play_turn.call_count == 3
+    record.assert_called_once()

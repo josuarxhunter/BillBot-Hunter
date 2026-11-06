@@ -6,6 +6,7 @@ from DBDofusUnity.datas.protos.non_obf.game.common_pb2 import (
 )
 from DBDofusUnity.datas.protos.non_obf.game.context_pb2 import ContextCreationEvent
 from DBDofusUnity.datas.protos.non_obf.game.fight_pb2 import (
+    FightEffectsEvent,
     FightRefreshCharacterStatsEvent,
     FightSynchronizeEvent,
     FightTurnEvent,
@@ -30,6 +31,7 @@ from DBDofusUnity.datas.protos.non_obf.game.spell_pb2 import (
 from DBDofusUnity.dofus_unity_reader.data_center.data_reader import DataReader
 from DBDofusUnity.dofus_unity_reader.game_constants.characteristic import CharacteristicEnum
 
+from src.core.engine.fights.forgelance import APPLY_STATE_ACTION_ID, STANCE_BY_SPELL_ID
 from src.core.frames.frame import Frame
 
 
@@ -74,6 +76,12 @@ class FightFrame(Frame):
         self.event_manager.on(
             GameActionFightEvent,
             self.on_game_action_fight_event,
+            originator=self,
+            priority=self.priority,
+        )
+        self.event_manager.on(
+            FightEffectsEvent,
+            self.on_fight_effects_event,
             originator=self,
             priority=self.priority,
         )
@@ -265,6 +273,17 @@ class FightFrame(Frame):
                 msg.invisible_detected.target_id, FightInvisibilityState.DETECTED
             )
 
+    def on_fight_effects_event(self, message: FightEffectsEvent) -> None:
+        applied = message.effect
+        if (
+            applied.action_id != APPLY_STATE_ACTION_ID
+            or applied.effect.target_id != self.game_state.player.character_id
+        ):
+            return
+        # These two spells apply a single stance. The mapped duration field carries the state ID in this build.
+        if (stance := STANCE_BY_SPELL_ID.get(applied.effect.spell_id)) is not None:
+            self.game_state.fight.forgelance_stance = stance
+
     def on_fight_synchronize_event(self, msg: FightSynchronizeEvent):
         player_id = self.game_state.player.character_id
         player_fighter = next(actor for actor in msg.fighters if actor.actor_id == player_id)
@@ -304,6 +323,7 @@ class FightFrame(Frame):
         )
 
     def on_fight_map_information_event(self, msg: FightMapInformationEvent):
+        self.game_state.fight.forgelance_stance = None
         self.game_state.fight.count_casted_by_spell_id_on_current_turn.clear()
         self.game_state.fight.cast_turn_by_spell_id.clear()
         self.game_state.fight.modifier_by_type_and_spell_id.clear()
@@ -319,14 +339,24 @@ class FightFrame(Frame):
         else:
             self.game_state.fight.count_casted_by_spell_id_on_current_turn.clear()
             self.game_state.fight.is_our_turn = False
+            actor = self.game_state.entity.actor_fight_by_id.get(msg.character_id)
+            # A confirmed death removes the actor. The server can still send turn entries for removed fighters.
+            if actor is not None and actor.life_point == 0:
+                self.logger.warning(
+                    "Fight HP desync: actor %s received a turn at 0 tracked HP; treating them as alive",
+                    msg.character_id,
+                )
+                actor.life_point = 1
 
     def on_map_complementary_information_event(self, msg: MapComplementaryInformationEvent):
+        self.game_state.fight.forgelance_stance = None
         self.game_state.fight.modifier_by_type_and_spell_id.clear()
         self.game_state.fight.count_casted_by_spell_id_on_current_turn.clear()
         self.game_state.fight.in_fight = False
         self.game_state.fight.fight_turn = 0
         self.game_state.fight.is_our_turn = False
         self.game_state.fight.fight_placement_possible_positions.clear()
+
 
 _LIFE_CHARACTERISTIC_IDS = {
     CharacteristicEnum.LIFE_POINTS,

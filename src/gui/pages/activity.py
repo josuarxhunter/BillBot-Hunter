@@ -221,7 +221,7 @@ class ActivityPage(QWidget):
             entry.happened_at.astimezone().strftime("%d/%m %H:%M:%S"),
             entry.login or tr("Application"),
             tr(entry.severity.title()) if get_language() == "es" else entry.severity,
-            entry.message,
+            tr(entry.message),
         )
 
     def _refresh_quarantined(self) -> None:

@@ -69,6 +69,7 @@ def make_behavior_coordinator() -> BehaviorCoordinator:
         fighter_behavior=Mock(),
         craft_behavior=Mock(),
         auto_bot_behavior=Mock(),
+        configurable_auto_behavior=Mock(),
         usable_behaviors=[],
         bot_signals=BotSignalsFake(stop=SignalEmitter()),  # type: ignore
         shared_signals=SharedSignalsFake(),  # type: ignore

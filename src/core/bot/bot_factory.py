@@ -1,5 +1,6 @@
 import random
 import threading
+from dataclasses import replace
 
 import src.core.config
 from AnkamaLauncherEmulator.ankama_launcher_emulator.interfaces.credentials import (
@@ -20,6 +21,10 @@ from src.core.behaviors.account.paysafecard_subscription import (
 )
 from src.core.behaviors.craft.craft_behavior import CraftBehavior
 from src.core.behaviors.farms.auto_bot_behavior import AutoBotBehavior
+from src.core.behaviors.farms.configurable_auto_behavior import (
+    ConfigurableAutoBehavior,
+    ConfigurableFarmingBehavior,
+)
 from src.core.behaviors.farms.fight.attacker_behavior import AttackerBehavior
 from src.core.behaviors.farms.fight.fight_behavior import FightBehavior
 from src.core.behaviors.farms.fight.fight_movement_behavior import FightMovementBehavior
@@ -377,6 +382,7 @@ class BotFactory:
             path_finding=path_finding,
             _logger=logger,
             fight_turn_behavior=fight_turn_behavior,
+            pause_automation=harvester_signals.stop.emit,
             login=account.apikey.login,
             shared_signals=shared_signals,
             auto_equipment_from_inventory_behavior=auto_equipment_from_inventory_behavior,
@@ -709,6 +715,36 @@ class BotFactory:
             report_status=harvester_signals.automation_status_changed.emit,
         )
 
+        configurable_route = replace(random_farm_behavior, reconnect_on_blocked_route=False)
+        configurable_auto_behavior = ConfigurableAutoBehavior(
+            recovery=blocking_state_recovery,
+            event_manager=event_manager,
+            game_state=game_state,
+            _logger=logger,
+            auto_equipment_behavior=auto_equipment_behavior,
+            fighter_behavior=replace(fighter_behavior, random_farm_behavior=configurable_route),
+            harvester_behavior=harvester,
+            multi_farming_behavior=ConfigurableFarmingBehavior(
+                recovery=blocking_state_recovery,
+                event_manager=event_manager,
+                game_state=game_state,
+                _logger=logger,
+                collect_behavior=collect_behavior,
+                unload_behavior=unload_behavior,
+                random_farm_behavior=configurable_route,
+                fight_behavior=fight_behavior,
+                report_status=harvester_signals.automation_status_changed.emit,
+                attacker_behavior=attacker_behavior,
+                auto_equipment_behavior=auto_equipment_behavior,
+            ),
+            dungeon_behavior=dungeon_behavior,
+            idle_behavior=idle_behavior,
+            craft_behavior=craft_behavior,
+            sale_hotel_sell_behavior=sale_hotel_prices_behavior,
+            report_status=harvester_signals.automation_status_changed.emit,
+            bot_signals=harvester_signals,
+        )
+
         fake_bad_interactive_behavior = FakeBadInteractiveBehavior(
             _logger=logger, event_manager=event_manager, game_state=game_state
         )
@@ -780,6 +816,7 @@ class BotFactory:
             fighter_behavior=fighter_behavior,
             craft_behavior=craft_behavior,
             auto_bot_behavior=auto_bot_behavior,
+            configurable_auto_behavior=configurable_auto_behavior,
             is_playing_event=is_playing_event,
             shared_signals=shared_signals,
             is_ready_to_play_event=is_ready_to_play_event,

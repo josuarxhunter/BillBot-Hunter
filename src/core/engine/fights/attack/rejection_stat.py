@@ -11,3 +11,4 @@ class RejectionStat(StrEnum):
     CELL_NOT_WALKABLE = auto()
     NO_LOS = auto()
     MAX_STACK_REACHED = auto()
+    FAILED_CAST_THIS_TURN = auto()

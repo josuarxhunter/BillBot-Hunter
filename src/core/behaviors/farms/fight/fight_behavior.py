@@ -1,4 +1,5 @@
-from dataclasses import dataclass
+from collections.abc import Callable
+from dataclasses import dataclass, field
 
 from DBDofusUnity.datas.protos.non_obf.game.fight_pb2 import (
     FightTurnStartPlayingEvent,
@@ -19,8 +20,11 @@ from src.core.behaviors.items.auto_equipment_from_inventory_behavior import (
 from src.core.engine.movements.map.path_finding.path_finding import Pathfinding
 from src.core.signals.shared_farm_signals import SharedSignals
 from src.services.human_timings import HumanTimingsService
+from src.services.user_activity import UserActivityService
 
 FIGHT_TIMEOUT_SECONDS = 30 * 60
+MAX_TURNS_WITHOUT_PROGRESS = 3
+COMBAT_PAUSED_MESSAGE = "Combat paused after three turns without an attack or an advance."
 CHARACTERISTIC_UPGRADE_WAIT_SECONDS = 0.05
 
 
@@ -32,8 +36,13 @@ class FightBehavior(Behavior):
     shared_signals: SharedSignals
     login: str
     auto_equipment_from_inventory_behavior: AutoEquipmentFromInventoryBehavior
+    pause_automation: Callable[[], None]
+    _last_started_turn: int | None = field(init=False, default=None)
+    _turns_without_progress: int = field(init=False, default=0)
 
     def run(self) -> None:
+        self._last_started_turn = None
+        self._turns_without_progress = 0
         self.run_timer(FIGHT_TIMEOUT_SECONDS, self.on_fight_timeout)
         self.event_manager.on(
             MapComplementaryInformationEvent,
@@ -95,7 +104,24 @@ class FightBehavior(Behavior):
     def on_player_turn(self):
         if not self._can_start_fight_turn():
             return
-        if self.game_state.fight.fight_turn > 100:
+        fight_turn = self.game_state.fight.fight_turn
+        if self._last_started_turn is not None and fight_turn != self._last_started_turn:
+            previous = self.fight_turn_behavior
+            if previous.did_attack or previous.did_advance:
+                self._turns_without_progress = 0
+            else:
+                self._turns_without_progress += 1
+
+        if (
+            self._turns_without_progress >= MAX_TURNS_WITHOUT_PROGRESS
+            and not self.event_manager.is_socket_mode
+        ):
+            self.logger.warning(COMBAT_PAUSED_MESSAGE)
+            UserActivityService().record("warning", COMBAT_PAUSED_MESSAGE, login=self.login)
+            return self.pause_automation()
+
+        self._last_started_turn = fight_turn
+        if fight_turn > 100:
             self.logger.error("Bot Might be stuck")
             self.shared_signals.launch_account.emit(self.login)
         self._start_fight_turn_if_still_valid()

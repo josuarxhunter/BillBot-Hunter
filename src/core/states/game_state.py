@@ -153,6 +153,8 @@ class GameState:
         own_state_ids = (
             player_fight_actor.state_ids if player_fight_actor is not None else frozenset[int]()
         )
+        if (stance := self.fight.forgelance_stance) is not None:
+            own_state_ids = own_state_ids | {stance}
         own_active_stack_count_by_spell_id = self.fight.get_own_active_stack_count_by_spell_id()
         own_active_summon_count = self.fight.count_own_active_summons(
             self.player.character_id, actor_by_id, actor_fight_by_id

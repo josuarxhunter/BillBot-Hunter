@@ -16,7 +16,7 @@ from DBDofusUnity.datas.protos.non_obf.game.common_pb2 import (
     FightStartingPositions,
     Team,
 )
-from DBDofusUnity.datas.protos.non_obf.game.fight_pb2 import FightRefreshCharacterStatsEvent
+from DBDofusUnity.datas.protos.non_obf.game.fight_pb2 import FightRefreshCharacterStatsEvent, FightTurnEvent
 from DBDofusUnity.datas.protos.non_obf.game.fight_preparation_pb2 import (
     FightPlacementPossiblePositionsEvent,
 )
@@ -458,6 +458,23 @@ class TestFightState:
 
         assert attack_context.enemy_actors == []
         assert attack_context.enemies_data == []
+
+    def test_server_turn_recovers_zero_life_enemy_but_not_confirmed_death(self, runtime_bot: Bot) -> None:
+        game = runtime_bot.game_state
+        set_game_state(game, player_cell_id=318, enemy_cell_ids=[347], include_spell_ids=[])
+        enemy_id = game.get_attack_context().enemy_actors[0].actor_id
+        game.entity.actor_fight_by_id[enemy_id].life_point = 0
+        assert game.get_attack_context().enemy_actors == []
+
+        runtime_bot.event_manager.process_msg(FightTurnEvent(character_id=enemy_id))
+        assert [enemy.actor_id for enemy in game.get_attack_context().enemy_actors] == [enemy_id]
+        assert game.get_attack_context().enemies_data[0].life_point == 1
+
+        runtime_bot.event_manager.process_msg(
+            GameActionFightEvent(death=GameActionFightEvent.Death(target_id=enemy_id))
+        )
+        runtime_bot.event_manager.process_msg(FightTurnEvent(character_id=enemy_id))
+        assert game.get_attack_context().enemy_actors == []
 
     def test_attack_context_counts_own_active_summons(
         self,

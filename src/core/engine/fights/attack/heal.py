@@ -9,7 +9,7 @@ from DBDofusUnity.dofus_unity_reader.models.datas.spell_levels_root import (
 )
 
 from src.core.engine.contexts import AttackContext
-from src.core.engine.fights.attack.spell_filter import collect_castable_spells
+from src.core.engine.fights.attack.spell_filter import collect_castable_self_spells
 from src.core.engine.fights.effect import base_roll, can_self_cast, is_heal_effect, is_vitality_buff_effect
 from src.core.engine.fights.spell_modifier import SpellModifiers
 from src.core.engine.fights.stats.characteristic import get_stat_by_id
@@ -41,4 +41,4 @@ def _self_heal_effect(effect: Effect) -> bool:
 def get_valid_heal_spells_for_turn(
     context: AttackContext,
 ) -> list[tuple[SpellLevelsRootItem, Effect, SpellModifiers]]:
-    return collect_castable_spells(context, _self_heal_effect)
+    return collect_castable_self_spells(context, _self_heal_effect)

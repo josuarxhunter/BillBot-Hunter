@@ -18,6 +18,7 @@ from google.protobuf.message import Message
 from google.protobuf.message_factory import GetMessageClass
 
 from DBDofusUnity.consts import GAME_MAPPINGS_JSON_FILE
+from DBDofusUnity.datas.protos.non_obf.game.game_action_pb2 import GameActionFightEvent
 from DBDofusUnity.datas.protos.non_obf.game.game_message_pb2 import GameMessage
 from DBDofusUnity.proto_mapper_assembly.interfaces.game_mappings import (
     SimpleGameMappingsDocument,
@@ -30,6 +31,8 @@ from utils.protobuf import is_repeated_field
 logger = logging.getLogger(__name__)
 
 TYPE_URL_PREFIX = "type.ankama.com/"
+_HEAL_ACTION_ID = 108
+_SHARED_HEAL_AMOUNT_FIELD_NUMBER = 4
 _GAME_MAPPINGS_PATH = Path(GAME_MAPPINGS_JSON_FILE)
 
 
@@ -219,7 +222,35 @@ def get_clear_msg_from_obf(
     obf_msg: Message,
 ) -> Message | None:
     transformer = get_msg_transformer_to_clear(obf_msg.DESCRIPTOR.full_name)
-    return transformer(obf_msg) if transformer else None
+    if transformer is None:
+        return None
+
+    clear_msg = transformer(obf_msg)
+    if (
+        isinstance(clear_msg, GameActionFightEvent)
+        and clear_msg.action_id == _HEAL_ACTION_ID
+        and clear_msg.HasField("invisible_detected")
+    ):
+        _decode_shared_heal_payload(obf_msg, clear_msg)
+    return clear_msg
+
+
+def _decode_shared_heal_payload(obf_msg: Message, clear_msg: GameActionFightEvent) -> None:
+    # The server uses the same wire payload for action 108 and other effects.
+    # Its amount is field 4; the static invisibility mapping uses field 3 for the cell.
+    _, field_mapping = get_mapping_proto_to_obf()[GameActionFightEvent.DESCRIPTOR.full_name]
+    payload: Message = getattr(obf_msg, field_mapping["invisible_detected"])
+    amount_field = payload.DESCRIPTOR.fields_by_number.get(_SHARED_HEAL_AMOUNT_FIELD_NUMBER)
+    target_id = clear_msg.invisible_detected.target_id
+    clear_msg.ClearField("invisible_detected")
+    if amount_field is None or amount_field.type != FieldDescriptor.TYPE_INT32:
+        logger.warning("Missing amount field in the shared heal payload")
+        return
+
+    amount: int = getattr(payload, amount_field.name)
+    if amount > 0:
+        clear_msg.life_points_gain.target_id = target_id
+        clear_msg.life_points_gain.delta = amount
 
 
 def get_obf_msg_from_clear(

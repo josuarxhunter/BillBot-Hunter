@@ -69,6 +69,17 @@ def get_random_best_area_info(
     if old_area_id is not None:
         return AreaInfo(area_id=old_area_id, sub_area_id=old_sub_area_id)
 
+    candidates = get_harvesting_area_weights(context, previous_area_info_played)
+    areas_infos = list(candidates)
+    areas_weights = list(candidates.values())
+    logger.info(f"Area infos : {repr(areas_infos)} | Weight : {areas_weights}")
+    return random.choices(areas_infos, weights=areas_weights, k=1)[0]
+
+
+def get_harvesting_area_weights(
+    context: HarvesterAreaContext,
+    previous_area_info_played: list[AreaInfo],
+) -> dict[AreaInfo, float]:
     if context.player_is_sub:
         areas_with_weight = AREAS_SUB_WITH_WEIGHT
     else:
@@ -128,18 +139,8 @@ def get_random_best_area_info(
             1 + count_area_already_playing * 3 + previous_area_info_played.count(area_info)
         )
 
-    areas_infos = [
-        area_info
+    return {
+        area_info: weight_by_areas_info[area_info]
         for area_info in accessible_area_infos
         if is_valid_area_info_to_harvest(area_info, context, weight_by_areas_info)
-    ]
-
-    areas_weights = [
-        (weight_by_areas_info[area_info])
-        for area_info in accessible_area_infos
-        if is_valid_area_info_to_harvest(area_info, context, weight_by_areas_info)
-    ]
-
-    logger.info(f"Area infos : {repr(areas_infos)} | Weight : {areas_weights}")
-
-    return random.choices(areas_infos, weights=areas_weights, k=1)[0]
+    }

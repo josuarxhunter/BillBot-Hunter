@@ -25,6 +25,7 @@ def _context(*, enemies_data: list[EnemyData], action_points: int = 6) -> Attack
             player_map_point=MapPoint.from_cell_id(100),
             spells=[],
             primary_elem=0,
+            own_state_ids=frozenset(),
             characteristic_by_id={},
             modifier_by_type_and_spell_id={},
             range=0,

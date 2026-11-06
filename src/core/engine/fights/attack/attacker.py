@@ -1,11 +1,10 @@
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import NamedTuple
 
 from DBDofusUnity.datas.protos.non_obf.game.common_pb2 import SpellModifier, SpellModifierType
 from DBDofusUnity.dofus_unity_reader.data_center.data_reader import DataReader
 from DBDofusUnity.dofus_unity_reader.data_center.i18n import I18N
-from DBDofusUnity.dofus_unity_reader.game_constants.directions import DirectionsEnum
 from DBDofusUnity.dofus_unity_reader.game_constants.spell_shape_enum import SpellShapeEnum
 from DBDofusUnity.dofus_unity_reader.grid.map_point import MapPoint
 from DBDofusUnity.dofus_unity_reader.models.datas.spell_levels_root import Effect, SpellLevelsRootItem
@@ -49,7 +48,7 @@ class BestAttack(NamedTuple):
 
 class WeightCacheKey(NamedTuple):
     spell_lvl: SpellLevelsRootItem
-    direction: DirectionsEnum
+    caster_mp: MapPoint
     targetable_mp: MapPoint
 
 
@@ -155,13 +154,13 @@ class Attacker(ContextualLogger):
             return None
 
         direction = movable_mp.orientation_to(targetable_mp)
-        weight_cache_key = WeightCacheKey(spell_lvl, direction, targetable_mp)
+        weight_cache_key = WeightCacheKey(spell_lvl, movable_mp, targetable_mp)
 
         if weight_cache_key not in weight_cache:
             impact_mps = zone_spell.get_mps(mp=targetable_mp, direction=direction)
             weight_cache[weight_cache_key] = calculate_attack_weight(
                 self.damage_calculator,
-                context,
+                replace(context, player_map_point=movable_mp),
                 impact_mps,
                 spell_lvl,
                 effect,

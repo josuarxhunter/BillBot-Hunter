@@ -17,6 +17,7 @@ from src.core.behaviors.account.paysafecard_subscription import (
 from src.core.behaviors.behavior import Behavior
 from src.core.behaviors.craft.craft_behavior import CraftBehavior
 from src.core.behaviors.farms.auto_bot_behavior import AutoBotBehavior
+from src.core.behaviors.farms.configurable_auto_behavior import ConfigurableAutoBehavior
 from src.core.behaviors.farms.fight.fight_behavior import FightBehavior
 from src.core.behaviors.farms.fight.fighter_behavior import FighterBehavior
 from src.core.behaviors.farms.harvest.harvester_behavior import HarvesterBehavior
@@ -73,6 +74,7 @@ class Bot(ContextualLogger):
     craft_behavior: CraftBehavior
     fight_behavior: FightBehavior
     auto_bot_behavior: AutoBotBehavior
+    configurable_auto_behavior: ConfigurableAutoBehavior
     dungeon_behavior: DungeonBehavior
     connection_behavior: ConnectionBehavior
     game_session_behavior: GameSessionBehavior
@@ -123,6 +125,7 @@ class Bot(ContextualLogger):
             fighter_behavior=self.fighter_behavior,
             craft_behavior=self.craft_behavior,
             auto_bot_behavior=self.auto_bot_behavior,
+            configurable_auto_behavior=self.configurable_auto_behavior,
             usable_behaviors=self.usable_behaviors,
             bot_signals=self.bot_signals,
         )
@@ -181,6 +184,7 @@ class Bot(ContextualLogger):
         self.bot_signals.play_fighter.connect(self.behavior_coordinator.on_play_fighter)
         self.bot_signals.play_crafter.connect(self.behavior_coordinator.on_play_crafter)
         self.bot_signals.play_auto_bot.connect(self.behavior_coordinator.on_play_auto_bot)
+        self.bot_signals.play_configurable_auto.connect(self.behavior_coordinator.on_play_configurable_auto)
         self.bot_signals.play_usable_behavior.connect(self.behavior_coordinator.on_play_usable_behavior)
 
     def start(self):

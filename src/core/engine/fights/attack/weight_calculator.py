@@ -56,8 +56,9 @@ def calculate_attack_weight(
     data_effect = DataReader().effect_by_id[effect.effectId]
     description_effect = I18N().name_by_id[data_effect.descriptionId]
 
+    damage_effects = _spell_damage_effects(spell_lvl, effect, context.primary_elem)
     dmg_weight, effective_damage = calculate_damage_weight(
-        damage_calculator, context, spell_lvl, effect, target_mp, impact_mps, enemies_data
+        damage_calculator, context, spell_lvl, effect, target_mp, impact_mps, enemies_data, damage_effects
     )
 
     life_malus, shield_bonus = calculate_life_modifiers(context, spell_lvl)
@@ -67,7 +68,9 @@ def calculate_attack_weight(
 
     life_recovery_weight = calculate_life_recovery_weight(context, life_stolen, life_malus, shield_bonus)
 
-    ally_penalty = _ally_hit_penalty(context, impact_mps)
+    ally_penalty = 1.0
+    if any("a" in damage_effect.targetMask.split(",") for damage_effect in damage_effects):
+        ally_penalty = _ally_hit_penalty(context, impact_mps)
 
     return (dmg_weight * life_recovery_weight * ally_penalty) / modifiers.ap_cost
 
@@ -181,12 +184,11 @@ def calculate_damage_weight(
     target_mp: MapPoint,
     impact_mps: set[MapPoint],
     enemies_data: list[EnemyData],
+    damage_effects: list[Effect],
 ) -> tuple[float, float]:
     enemy_killed = 0.0
     enemy_dmg_weight = 0.0
     total_effective_damage = 0.0
-
-    damage_effects = _spell_damage_effects(spell_lvl, effect, context.primary_elem)
 
     push_distance = _spell_push_distance(spell_lvl, effect)
     occupied_cell_ids: set[int] = set()
@@ -195,8 +197,9 @@ def calculate_damage_weight(
         occupied_cell_ids = {
             actor.disposition.cell_id
             for actor in context.actor_by_id.values()
-            if actor.disposition.cell_id != -1
+            if actor.actor_id != context.player_character_id and actor.disposition.cell_id != -1
         }
+        occupied_cell_ids.add(context.player_map_point.cell_id)
         push_damage_bonus = get_stat_by_id(
             context.characteristic_by_id.get(CharacteristicEnum.PUSH_DAMAGE_BONUS)
         )

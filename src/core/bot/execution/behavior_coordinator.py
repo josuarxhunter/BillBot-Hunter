@@ -16,9 +16,11 @@ from src.controller.settings import SettingsService
 from src.core.behaviors.behavior import Behavior, BehaviorState
 from src.core.behaviors.craft.craft_behavior import CraftBehavior, CraftRequest
 from src.core.behaviors.farms.auto_bot_behavior import AutoBotBehavior
+from src.core.behaviors.farms.configurable_auto_behavior import ConfigurableAutoBehavior
 from src.core.behaviors.farms.fight.fight_behavior import FightBehavior
 from src.core.behaviors.farms.fight.fighter_behavior import FighterBehavior
 from src.core.behaviors.farms.harvest.harvester_behavior import HarvesterBehavior
+from src.core.config import ConfigurableAutoSettings
 from src.core.events_manager.event_manager import EventManager
 from src.core.signals.bot_signals import BotSignals
 from src.core.signals.shared_farm_signals import SharedSignals
@@ -41,6 +43,7 @@ class BehaviorCoordinator(ContextualLogger):
     fighter_behavior: FighterBehavior
     craft_behavior: CraftBehavior
     auto_bot_behavior: AutoBotBehavior
+    configurable_auto_behavior: ConfigurableAutoBehavior
     usable_behaviors: list[Behavior]
 
     bot_signals: BotSignals
@@ -116,6 +119,15 @@ class BehaviorCoordinator(ContextualLogger):
                 parent=None,
                 area_id=None,
                 sub_area_id=None,
+            )
+        )
+
+    def on_play_configurable_auto(self, preferences: ConfigurableAutoSettings) -> None:
+        self.play_action(
+            lambda _progress_callback: self.configurable_auto_behavior.start(
+                callback=lambda *_args: self.bot_signals.stop.emit(),
+                parent=None,
+                preferences=preferences,
             )
         )
 

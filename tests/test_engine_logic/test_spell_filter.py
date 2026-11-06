@@ -61,6 +61,7 @@ class TestIsSpellValidForTurnMaxStack:
             AttackContext,
             SimpleNamespace(
                 action_points=10,
+                failed_cast_spell_ids=frozenset(),
                 fight_turn=3,
                 cast_turn_by_spell_id={},
                 count_casted_by_spell_id_on_current_turn={},

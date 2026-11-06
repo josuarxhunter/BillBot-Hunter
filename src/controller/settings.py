@@ -6,7 +6,7 @@ from typing import cast
 from ankama_launcher_emulator.utils.atomic_file import acquire_file_lock, atomic_write_text
 from pydantic import ValidationError
 
-from src.core.config import BehaviorSettings, GlobalSettings
+from src.core.config import BehaviorSettings, ConfigurableAutoSettings, GlobalSettings
 from src.utils.project_paths import USER_DATA_ROOT
 from src.utils.runtime_support import RuntimeSetupError
 from utils.language import GameLanguage
@@ -49,7 +49,7 @@ class SettingsService(metaclass=Singleton):
         del migrated_behaviors["do_quest"]
         migrated_payload["behaviors"] = migrated_behaviors
         try:
-            settings = GlobalSettings.model_validate(migrated_payload)
+            settings = GlobalSettings.model_validate_json(json.dumps(migrated_payload))
         except ValidationError as error:
             message = f"Invalid local file: {SETTINGS_PATH.name}. Fix it or restore a backup."
             raise RuntimeSetupError(message) from error
@@ -81,3 +81,12 @@ class SettingsService(metaclass=Singleton):
     def update_sonji_key(self, key: str | None) -> None:
         with self._lock:
             self._save(self.get().model_copy(update={"sonji_api_key": key}))
+
+    def configurable_auto(self, account_id: int) -> ConfigurableAutoSettings:
+        return self.get().configurable_auto_by_account.get(str(account_id), ConfigurableAutoSettings())
+
+    def update_configurable_auto(self, account_id: int, preferences: ConfigurableAutoSettings) -> None:
+        with self._lock:
+            settings = self.get()
+            by_account = {**settings.configurable_auto_by_account, str(account_id): preferences}
+            self._save(settings.model_copy(update={"configurable_auto_by_account": by_account}))

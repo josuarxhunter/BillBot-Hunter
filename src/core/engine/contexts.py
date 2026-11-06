@@ -95,6 +95,7 @@ class AttackContext:
     own_active_stack_count_by_spell_id: dict[int, int]
     own_active_summon_count: int
     max_active_summon_count: int
+    failed_cast_spell_ids: frozenset[int] = frozenset()
 
 
 @dataclass(frozen=True)

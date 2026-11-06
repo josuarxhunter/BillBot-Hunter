@@ -14,7 +14,9 @@ from DBDofusUnity.dofus_unity_reader.data_center.data_reader import DataReader
 from src.core import config
 from src.core.behaviors.behavior_factory import USABLE_BEHAVIORS
 from src.core.bot.bot import Bot
+from src.core.signals.bot_signals import FarmDecision
 from src.gui.pages.farmer.bank_tab import BankTab
+from src.gui.pages.farmer.configurable_auto_panel import ConfigurableAutoPanel
 from src.gui.pages.farmer.inventory_tab import InventoryTab
 from src.gui.pages.farmer.map_tab import MapTab
 from src.gui.pages.farmer.player_tab import PlayerTab
@@ -25,6 +27,7 @@ from src.gui.i18n import tr
 
 class FarmActionEnum(StrEnum):
     AUTO = "Automatic"
+    CONFIGURABLE_AUTO = "Configurable automatic"
     HARVESTER = "Harvesting"
     FIGHTER = "Combat"
 
@@ -113,7 +116,10 @@ class FarmerWidget(QWidget):
         top_widget_layout.addWidget(self.sub_area_farm_combo)
 
         self._v_layout.addWidget(top_widget)
-
+        self.configurable_auto_panel = ConfigurableAutoPanel(
+            self.bot.account.apikey.accountId, self.bot.bot_signals, self
+        )
+        self._v_layout.addWidget(self.configurable_auto_panel)
         self.on_type_action_changed()
 
     def init_content(self) -> None:
@@ -125,20 +131,11 @@ class FarmerWidget(QWidget):
     @pyqtSlot()
     def on_type_action_changed(self) -> None:
         current_action = self.type_action_combo.currentData()
-        if current_action not in FarmActionEnum or current_action in [
-            CraftActionEnum.CRAFTER,
-            FarmActionEnum.AUTO,
-        ]:
-            self.area_farm_combo.setHidden(True)
-            self.sub_area_farm_combo.setHidden(True)
-        else:
-            self.area_farm_combo.setHidden(False)
-            self.sub_area_farm_combo.setHidden(False)
-
-        if current_action in [CraftActionEnum.CRAFTER]:
-            self.play_btn.setDisabled(True)
-        else:
-            self.play_btn.setDisabled(False)
+        show_zone = current_action in (FarmActionEnum.HARVESTER, FarmActionEnum.FIGHTER)
+        self.area_farm_combo.setVisible(show_zone)
+        self.sub_area_farm_combo.setVisible(show_zone)
+        self.configurable_auto_panel.setVisible(current_action == FarmActionEnum.CONFIGURABLE_AUTO)
+        self.play_btn.setDisabled(current_action == CraftActionEnum.CRAFTER)
 
     @pyqtSlot()
     def on_area_selected(self) -> None:
@@ -157,10 +154,20 @@ class FarmerWidget(QWidget):
 
     @pyqtSlot()
     def on_click_play(self) -> None:
+        action = self.type_action_combo.currentData()
+        if action == FarmActionEnum.CONFIGURABLE_AUTO:
+            preferences = self.configurable_auto_panel.save()
+            if preferences is not None:
+                self.configurable_auto_panel.show_decision(FarmDecision(
+                    "Preparing", "Starting the selected account.", "Connect and check equipment.",
+                ))
+                self.bot.bot_signals.play.emit(True)
+                self.bot.bot_signals.play_configurable_auto.emit(preferences)
+            return
+
         area_id = self.area_farm_combo.currentData()
         sub_area_id = self.sub_area_farm_combo.currentData()
         self.bot.bot_signals.play.emit(True)
-        action = self.type_action_combo.currentData()
         if action == FarmActionEnum.HARVESTER:
             self.bot.bot_signals.play_harvester.emit(area_id, sub_area_id)
         elif action == FarmActionEnum.FIGHTER:
@@ -177,6 +184,7 @@ class FarmerWidget(QWidget):
         self.type_action_combo.setDisabled(True)
         self.area_farm_combo.setDisabled(True)
         self.sub_area_farm_combo.setDisabled(True)
+        self.configurable_auto_panel.set_running(True)
 
     @pyqtSlot(object, object)
     def on_play_harvester(self, area_id: int | None, sub_area_id: int | None) -> None:
@@ -219,6 +227,9 @@ class FarmerWidget(QWidget):
         self.type_action_combo.setDisabled(False)
         self.area_farm_combo.setDisabled(False)
         self.sub_area_farm_combo.setDisabled(False)
+        self.configurable_auto_panel.set_running(False)
+        if self.type_action_combo.currentData() == FarmActionEnum.CONFIGURABLE_AUTO:
+            self.configurable_auto_panel.show_stopped()
 
     @pyqtSlot()
     def on_click_stop(self) -> None:

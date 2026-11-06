@@ -37,6 +37,7 @@ class CollectBehavior(Behavior):
     interactive_behavior: InteractiveBehavior
     path_finding: Pathfinding
 
+    completed_collections: int = field(init=False, default=0)
     is_first_action: bool = field(init=False, default=False)
     is_first_collect: bool = field(init=False, default=False)
 
@@ -44,6 +45,7 @@ class CollectBehavior(Behavior):
     target_resource_item_ids: set[int] | None = field(init=False, default=None)
 
     def run(self, target_resource_item_ids: set[int] | None = None) -> None:
+        self.completed_collections = 0
         self.excluded_element_ids.clear()
         self.target_resource_item_ids = target_resource_item_ids
         self.is_first_action = True
@@ -129,6 +131,7 @@ class CollectBehavior(Behavior):
         self.unregister_listener(
             StatedElementUpdatedEvent, reason="Element state confirmed, proceeding with next collection"
         )
+        self.completed_collections += 1
         if random.random() < BETWEEN_COLLECT_PAUSE_PROBABILITY:
             pause_time = HumanTimingsService().get_timing_between_collects()
             self.logger.debug(f"Taking a short break: {pause_time:.1f}s")

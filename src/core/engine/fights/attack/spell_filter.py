@@ -8,6 +8,7 @@ from DBDofusUnity.dofus_unity_reader.models.datas.spell_levels_root import (
 )
 from src.core.engine.contexts import AttackContext
 from src.core.engine.fights.attack.rejection_stat import RejectionStat
+from src.core.engine.fights.forgelance import LANCE_TARGET_WHEN_DISARMED, ForgelanceStance
 from src.core.engine.fights.spell import get_damage_spells
 from src.core.engine.fights.spell_modifier import SpellModifiers
 from src.services.logging_utils.loggers import BotLogger
@@ -17,7 +18,7 @@ def get_valid_spells_for_turn(
     context: AttackContext,
     logger: BotLogger,
 ) -> list[tuple[SpellLevelsRootItem, Effect, SpellModifiers]]:
-    valuable_spells = get_damage_spells(context.spells, context.primary_elem)
+    valuable_spells = get_damage_spells(context.spells, context.primary_elem, context.own_state_ids)
 
     rejection_stats: dict[RejectionStat, int] = defaultdict(int)
 
@@ -49,7 +50,7 @@ def get_valid_spells_for_turn(
     return valid_spell_levels
 
 
-def collect_castable_spells(
+def collect_castable_self_spells(
     context: AttackContext,
     effect_predicate: Callable[[Effect], bool],
 ) -> list[tuple[SpellLevelsRootItem, Effect, SpellModifiers]]:
@@ -61,11 +62,15 @@ def collect_castable_spells(
         if not spell.spell_id:
             continue
         spell_lvl = DataReader().spell_lvl_by_spell_id[spell.spell_id][spell.spell_level - 1]
+        if ForgelanceStance.DISARMED in context.own_state_ids and spell.spell_id in LANCE_TARGET_WHEN_DISARMED:
+            continue
         matched = next((effect for effect in spell_lvl.effects if effect_predicate(effect)), None)
         if matched is None:
             continue
         modifiers = SpellModifiers.from_spell(context.range, spell_lvl, modifiers_map)
-        if is_spell_valid_for_turn(context, spell_lvl, modifiers, rejection_stats):
+        if modifiers.range_min <= 0 <= modifiers.range_max and is_spell_valid_for_turn(
+            context, spell_lvl, modifiers, rejection_stats
+        ):
             valid.append((spell_lvl, matched, modifiers))
 
     return valid
@@ -91,6 +96,10 @@ def is_spell_valid_for_turn(
     modifiers: SpellModifiers,
     rejection_stats: dict[RejectionStat, int],
 ) -> bool:
+    if spell_lvl.spellId in context.failed_cast_spell_ids:
+        rejection_stats[RejectionStat.FAILED_CAST_THIS_TURN] += 1
+        return False
+
     current_ap = context.action_points
 
     if modifiers.ap_cost > current_ap:

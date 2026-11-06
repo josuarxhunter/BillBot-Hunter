@@ -10,7 +10,7 @@ from DBDofusUnity.dofus_unity_reader.grid.map_point import MapPoint
 from DBDofusUnity.dofus_unity_reader.models.datas.spell_levels_root import SpellLevelsRootItem
 from src.core.behaviors.farms.fight.fight_listener_behavior import FightListenerBehavior
 from src.core.behaviors.farms.fight.fight_movement_behavior import FightMovementBehavior
-from src.core.behaviors.farms.fight.fight_spell_behavior import FightSpellBehavior
+from src.core.behaviors.farms.fight.fight_spell_behavior import FightSpellBehavior, FightSpellError
 from src.core.behaviors.movements.map_move_behavior import MapMoveError
 from src.core.engine.contexts import AttackContext
 from src.core.engine.fights.attack.attacker import Attacker
@@ -27,13 +27,19 @@ class FightTurnBehavior(FightListenerBehavior):
     breed_ability_selector: BreedAbilitySelector
 
     did_attack: bool = field(init=False, default=False)
+    did_advance: bool = field(init=False, default=False)
+    _tried_advance: bool = field(init=False, default=False)
     did_cast_support_spell: bool = field(init=False, default=False)
+    failed_cast_spell_ids: set[int] = field(init=False, default_factory=set[int])
     last_cast_spell_id: int | None = field(init=False, default=None)
 
     def run(self) -> None:
         self.did_attack = False
+        self.did_advance = False
+        self._tried_advance = False
         self.did_cast_support_spell = False
         self.last_cast_spell_id = None
+        self.failed_cast_spell_ids.clear()
         self.event_manager.on(FightTurnEvent, lambda _: self.finish(), originator=self)
         self.register_fight_death_check()
         contexts = self._get_attack_context_or_finish()
@@ -87,13 +93,15 @@ class FightTurnBehavior(FightListenerBehavior):
             support_action = self.breed_ability_selector.find_support_action(context)
             if support_action is not None:
                 return self._do_move_then_spell(
-                    support_action, lambda: self._advance_turn(0, with_reserved_ap=False)
+                    support_action, lambda: self._advance_turn(0, with_reserved_ap=False), is_attack=False
                 )
 
         if with_reserved_ap:
             return self._advance_turn(0, with_reserved_ap=False)
 
         self.logger.info("No spell to launch")
+        if not self.did_attack:
+            return self._advance_toward_enemy(context)
 
         self._do_move()
 
@@ -107,6 +115,9 @@ class FightTurnBehavior(FightListenerBehavior):
             else:
                 self.finish()
             return None
+
+        if self.failed_cast_spell_ids:
+            context = replace(context, failed_cast_spell_ids=frozenset(self.failed_cast_spell_ids))
 
         if not context.enemy_actors and not context.invisible_enemy_cell_ids:
             self.logger.info("No enemies left, passing turn")
@@ -132,12 +143,17 @@ class FightTurnBehavior(FightListenerBehavior):
             self.did_cast_support_spell = True
             callback()
 
-        self._schedule_spell_cast(spell_lvl.spellId, context.player_map_point, on_casted_self_spell)
+        self._schedule_spell_cast(
+            spell_lvl, context.player_map_point, context.player_map_point, on_casted_self_spell
+        )
 
     def _do_move_then_spell(
-        self, attack_info: tuple[MapPoint, SpellLevelsRootItem, MapPoint], canceled_error: Callable[[], None]
+        self,
+        attack_info: tuple[MapPoint, SpellLevelsRootItem, MapPoint],
+        canceled_error: Callable[[], None],
+        *,
+        is_attack: bool = True,
     ) -> None:
-        self.did_attack = True
         move_mp, spell_lvl, attack_mp = attack_info
 
         position_before_move = self.game_state.map.map_point
@@ -152,7 +168,12 @@ class FightTurnBehavior(FightListenerBehavior):
                 self.logger.error(f"Could not reach planned cast cell {move_mp}, passing turn")
                 return self.pass_turn()
 
-            self._schedule_spell_cast(spell_lvl.spellId, attack_mp, self.on_fight_spell_behavior_finished)
+            self._schedule_spell_cast(
+                spell_lvl,
+                move_mp,
+                attack_mp,
+                partial(self.on_fight_spell_behavior_finished, is_attack=is_attack),
+            )
 
         self.fight_movement_behavior.start(
             callback=partial(
@@ -163,6 +184,31 @@ class FightTurnBehavior(FightListenerBehavior):
             parent=self,
             move_path=move_path,
         )
+
+    def _advance_toward_enemy(self, context: AttackContext) -> None:
+        if self._tried_advance:
+            return self.pass_turn()
+        self._tried_advance = True
+        path = self.fight_movement_behavior.find_advance_path(context)
+        if path is None:
+            return self.pass_turn()
+
+        def retry_from_new_cell() -> None:
+            if self.game_state.map.map_point == context.player_map_point:
+                return self.pass_turn()
+            self.did_advance = True
+            self._advance_turn(0)
+
+        def on_movement_finished(error_code: str | None, cell_mp: MapPoint | None = None) -> None:
+            self.on_fight_movement_behavior_finished(
+                error_code,
+                callback_canceled=retry_from_new_cell,
+                callback=retry_from_new_cell,
+                cell_mp=cell_mp,
+            )
+
+        self.logger.info("No cast from current position, advancing toward an enemy")
+        self.fight_movement_behavior.start(move_path=path, callback=on_movement_finished, parent=self)
 
     def _do_move(self) -> None:
         def on_movement_finished(error_code: str | None, cell_mp: MapPoint | None = None) -> None:
@@ -179,16 +225,28 @@ class FightTurnBehavior(FightListenerBehavior):
 
     def _schedule_spell_cast(
         self,
-        spell_id: int,
+        spell_lvl: SpellLevelsRootItem,
+        from_mp: MapPoint,
         target_mp: MapPoint,
         callback: Callable[[str | None], None],
     ) -> None:
+        spell_id = spell_lvl.spellId
         same_spell = spell_id == self.last_cast_spell_id
+
+        def on_cast_finished(error_code: str | None) -> None:
+            if isinstance(error_code, FightSpellError):
+                self.failed_cast_spell_ids.add(spell_id)
+                return self._advance_turn(0)
+            callback(error_code)
 
         def start_spell() -> None:
             self.last_cast_spell_id = spell_id
             self.fight_spell_behavior.start(
-                spell_id=spell_id, target_mp=target_mp, parent=self, callback=callback
+                spell_lvl=spell_lvl,
+                from_mp=from_mp,
+                target_mp=target_mp,
+                parent=self,
+                callback=on_cast_finished,
             )
 
         self.run_timer(HumanTimingsService().get_timing_fight_action(same_spell), start_spell)
@@ -214,8 +272,12 @@ class FightTurnBehavior(FightListenerBehavior):
             return self.pass_turn()
         callback()
 
-    def on_fight_spell_behavior_finished(self, error_code: str | None) -> None:
+    def on_fight_spell_behavior_finished(self, error_code: str | None, *, is_attack: bool = True) -> None:
         self.raise_if_error(error_code)
+        if is_attack:
+            self.did_attack = True
+        else:
+            self.did_cast_support_spell = True
         self._advance_turn(0)
 
     def pass_turn(self) -> None:

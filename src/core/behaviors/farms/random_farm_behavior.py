@@ -41,6 +41,7 @@ class RandomFarmBehavior(Behavior):
     weighted_path: WeightedPath
     world_signals: WorldSignals
     report_status: Callable[[str], None]
+    reconnect_on_blocked_route: bool = True
     additional_weight_by_map_id: dict[int, float] = field(default_factory=dict[int, float], init=False)
     get_additional_weight_by_map_id: Callable[[int], float] = field(init=False, default=lambda _: 0)
     map_ids: set[int] = field(default_factory=set[int], init=False)
@@ -210,7 +211,8 @@ class RandomFarmBehavior(Behavior):
             self.edge_path = None
             self.logger.error(error_code)
             if (
-                error_code is AutoTripErrorCode.PATH_NOT_FOUND
+                self.reconnect_on_blocked_route
+                and error_code is AutoTripErrorCode.PATH_NOT_FOUND
                 and self.game_state.map.has_session_banned_transitions
             ):
                 return self._force_reconnect(

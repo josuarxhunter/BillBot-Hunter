@@ -20,6 +20,7 @@ from DBDofusUnity.dofus_unity_reader.grid.map_point import MapPoint
 from src.core import config
 from src.core.engine.fights.attack.enemy_data import EnemyData, get_monster_max_spell_range
 from src.core.engine.fights.effect import get_effect_elem_by_stat
+from src.core.engine.fights.forgelance import ForgelanceStance
 from src.core.engine.fights.stats.characteristic import get_stat_by_id
 from src.core.engine.monsters.monster_group import MonsterFighter
 from src.core.signals.player_signals import GameInfoSignals
@@ -50,6 +51,7 @@ class FightState(State):
     characteristic_by_id: dict[int, CharacterCharacteristic] = dataclasses.field(
         init=False, default_factory=dict[int, CharacterCharacteristic]
     )
+    forgelance_stance: ForgelanceStance | None = field(init=False, default=None)
     _breed_id: int = dataclasses.field(init=False, default=0)
     _in_fight: bool = dataclasses.field(init=False, default=False)
     _fight_turn: int = dataclasses.field(init=False, default=0)
@@ -65,6 +67,7 @@ class FightState(State):
         self.count_casted_by_spell_id_on_current_turn.clear()
         self.cast_turn_by_spell_id.clear()
         self.own_spell_id_by_effect_uid.clear()
+        self.forgelance_stance = None
         self.characteristic_by_id.clear()
         self.in_fight = False
         self.fight_turn = 0
