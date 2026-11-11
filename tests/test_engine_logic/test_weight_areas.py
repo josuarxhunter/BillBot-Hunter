@@ -28,9 +28,7 @@ def test_area_selection_scores_accessible_harvestables_without_map_scan(
     )
     monkeypatch.setattr(weight_areas, "get_weight_collectable", collectable_weight)
 
-    result = weight_areas.get_random_best_area_info(
-        old_area_id=None,
-        old_sub_area_id=None,
+    result = weight_areas.get_harvesting_area_weights(
         context=HarvesterAreaContext(
             player_level=200,
             player_waypoint_map_ids=frozenset(),
@@ -41,8 +39,8 @@ def test_area_selection_scores_accessible_harvestables_without_map_scan(
             current_area_infos_by_server_and_character={},
         ),
         previous_area_info_played=[],
-        logger=MagicMock(),
     )
 
-    assert result == accessible_area
+    assert result.keys() == {accessible_area}
+    assert result[accessible_area] > 0
     collectable_weight.assert_called_once()

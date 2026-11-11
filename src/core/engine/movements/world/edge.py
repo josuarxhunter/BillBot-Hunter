@@ -69,7 +69,7 @@ def edge_has_valid_transition(edge: Edge, context: WorldTransitionContext) -> bo
 def iter_valid_outgoing_edges(vertice: Vertice, context: WorldTransitionContext) -> Iterator[Edge]:
     edges = WorldGraphReader().get_outgoing_edges_from_vertex(vertice)
     for edge in edges:
-        if edge.m_to.m_mapId in FORBIDDEN_MAP_IDS:
+        if edge.m_to.m_mapId in FORBIDDEN_MAP_IDS and edge.m_to.m_mapId not in context.allowed_map_ids:
             continue
         try:
             if not context.criterion.is_sub and not MapTools.is_map_allowed_for_unsub(edge.m_to.m_mapId):

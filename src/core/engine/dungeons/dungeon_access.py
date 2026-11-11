@@ -1,3 +1,4 @@
+from enum import StrEnum
 from logging import Logger
 
 from DBDofusUnity.datas.protos.non_obf.game.common_pb2 import (
@@ -10,29 +11,42 @@ from DBDofusUnity.dofus_unity_reader.game_constants.item import ItemEnum, ItemTy
 from src.core.engine.dungeons.dungeon_info import DungeonInfo
 
 
-def do_have_key_access_to_dungeon(
+class DungeonAccess(StrEnum):
+    KEYRING = "keyring"
+    INVENTORY_KEY = "inventory_key"
+
+
+def get_dungeon_access(
     dungeon_info: DungeonInfo,
     objects_by_uid: dict[int, ObjectItemInventory],
     logger: Logger,
-):
-    related_king_ring_item = next(
-        object.item for object in objects_by_uid.values() if object.item.gid == ItemEnum.KEY_RING
-    )
-    related_item_key_ids = [
+) -> DungeonAccess | None:
+    if dungeon_info.blocked_reason is not None:
+        return None
+    related_item_key_ids = {
         item.id
         for item in DataReader().item_by_id.values()
         if item.nameId is not None
-        and dungeon_info.key_name in I18N().name_by_id[item.nameId]
+        and dungeon_info.key_name in I18N().name_by_id.get(item.nameId, "")
         and item.typeId == ItemTypeEnum.KEY
-    ]
-    if len(related_item_key_ids) == 0:
-        logger.error(f"Wtf did not found related key for name {dungeon_info.name}")
-        return False
+    }
+    if not related_item_key_ids:
+        logger.error("No key definition found for dungeon %s", dungeon_info.name)
+        return None
 
-    logger.info(f"related item keys id : {related_item_key_ids}")
-    logger.info(f"keyring value_int : {[effect.value_int for effect in related_king_ring_item.effects]}")
-
-    does_have_king_ring_related_key = any(
-        effect.value_int in related_item_key_ids for effect in related_king_ring_item.effects
+    keyring = next(
+        (
+            object.item
+            for object in objects_by_uid.values()
+            if object.item.gid == ItemEnum.KEY_RING and object.item.quantity > 0
+        ),
+        None,
     )
-    return does_have_king_ring_related_key
+    if keyring is not None and any(effect.value_int in related_item_key_ids for effect in keyring.effects):
+        return DungeonAccess.KEYRING
+    if any(
+        object.item.gid in related_item_key_ids and object.item.quantity > 0
+        for object in objects_by_uid.values()
+    ):
+        return DungeonAccess.INVENTORY_KEY
+    return None

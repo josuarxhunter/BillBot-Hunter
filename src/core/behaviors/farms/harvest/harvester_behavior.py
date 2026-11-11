@@ -1,7 +1,7 @@
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
-from context_pb2 import ContextCreationEvent
+from DBDofusUnity.datas.protos.non_obf.game.context_pb2 import ContextCreationEvent
 
 from DBDofusUnity.datas.protos.non_obf.game.gamemap_pb2 import (
     MapComplementaryInformationEvent,
@@ -70,7 +70,9 @@ class HarvesterBehavior(BaseFarmBehavior):
         )
 
         self.is_stopped_at_new_map_condition = is_stopped_at_new_map_condition
-        self.map_ids_to_explore = get_map_ids_to_explore(self.random_farm_behavior.map_ids)
+        self.map_ids_to_explore = get_map_ids_to_explore(
+            self.random_farm_behavior.get_map_ids(area_id, sub_area_id)
+        )
         self.logger.info(
             f"Will explore {len(self.map_ids_to_explore)} new maps in zone of {len(self.random_farm_behavior.map_ids)} total maps"
         )
@@ -82,9 +84,14 @@ class HarvesterBehavior(BaseFarmBehavior):
                 map_id,
                 self.map_ids_to_explore,
                 self.game_state.player.jobs_lvl_by_id,
-                self.game_state.guild_chest.storage.get_all_items_by_gid(),
+                (
+                    self.game_state.inventory.get_harvest_stock_by_gid()
+                    if self.game_state.configurable_auto is not None
+                    else self.game_state.guild_chest.storage.get_all_items_by_gid()
+                ),
                 self.game_state.player.is_sub,
                 self.game_state.player.server_id,
+                self.game_state.configurable_auto,
             ),
         )
         self.init_listeners()

@@ -251,6 +251,7 @@ def test_resource_validation_identifies_missing_and_lfs(tmp_path: Path) -> None:
 
 def test_json_and_map_archive_are_validated(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(install_validation, "BUNDLE_ROOT", tmp_path)
+    monkeypatch.setattr(install_validation, "USER_DATA_ROOT", tmp_path)
     monkeypatch.setattr(
         install_validation,
         "FRIDA_SCRIPT_PATH",
@@ -272,6 +273,9 @@ def test_json_and_map_archive_are_validated(tmp_path: Path, monkeypatch: pytest.
     with ZipFile(bundles / "maps.zip", "w") as archive:
         archive.writestr("map/map_1.json", "{}")
     install_validation.validate_resources()
+    with patch.object(install_validation, "ZipFile") as archive_reader:
+        install_validation.validate_resources()
+    archive_reader.assert_not_called()
     (bundles / "i18n.json").write_text("broken")
     with pytest.raises(runtime_support.RuntimeSetupError, match="i18n.json"):
         install_validation.validate_resources()
@@ -279,3 +283,35 @@ def test_json_and_map_archive_are_validated(tmp_path: Path, monkeypatch: pytest.
     (bundles / "maps.zip").write_text("broken")
     with pytest.raises(runtime_support.RuntimeSetupError, match="maps.zip"):
         install_validation.validate_resources()
+
+
+def test_browser_cache_rechecks_changed_executable_and_environment(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import playwright
+
+    monkeypatch.setattr(install_validation, "USER_DATA_ROOT", tmp_path)
+    monkeypatch.setattr(playwright, "__file__", str(tmp_path / "__init__.py"))
+    executable = tmp_path / "chromium.exe"
+    for path in (
+        executable,
+        tmp_path / "driver/node.exe",
+        tmp_path / "driver/package/cli.js",
+        tmp_path / "driver/package/browsers.json",
+    ):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b"test")
+    with patch("playwright.sync_api.sync_playwright") as start:
+        chromium = start.return_value.__enter__.return_value.chromium
+        chromium.executable_path = str(executable)
+        page = chromium.launch.return_value.__enter__.return_value.new_page.return_value
+        page.title.return_value = "Installation OK"
+        install_validation.validate_browser()
+        install_validation.validate_browser()
+        assert chromium.launch.call_count == 1
+        executable.write_bytes(b"updated browser")
+        install_validation.validate_browser()
+        assert chromium.launch.call_count == 2
+        monkeypatch.setenv("PLAYWRIGHT_BROWSERS_PATH", str(tmp_path / "other"))
+        install_validation.validate_browser()
+        assert chromium.launch.call_count == 3

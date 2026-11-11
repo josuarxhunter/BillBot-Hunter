@@ -115,7 +115,7 @@ def test_running_bot_keeps_settings_until_next_manual_or_planned_start(runtime_b
     service.update_behaviors(next_settings, False)
     assert bot.game_state.settings == changed
     start = datetime.now()
-    bot.auto_bot_behavior.start_planned_session(start, start + timedelta(hours=2))
+    bot.configurable_auto_behavior.start_planned_session(start, start + timedelta(hours=2))
     assert bot.game_state.settings == next_settings
     bot.is_playing_event.clear()
 

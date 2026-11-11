@@ -17,6 +17,11 @@ class AutoTripExploratorBehavior(Behavior):
     auto_trip_zaap_behavior: AutoTripZaapBehavior
 
     def run(self, map_ids: set[int]) -> None:
+        if not self.auto_trip_zaap_behavior.can_reach(map_ids):
+            return self.finish(AutoTripErrorCode.PATH_NOT_FOUND)
+        preferences = self.game_state.configurable_auto
+        if preferences is not None and not preferences.discover_zaaps:
+            return self.on_explored_near_zaap(map_ids)
         if not self.game_state.player.is_sub:
             return self.on_explored_near_zaap(map_ids=map_ids)
 

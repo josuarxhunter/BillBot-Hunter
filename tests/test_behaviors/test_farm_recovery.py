@@ -31,7 +31,7 @@ class TestFarmRecovery:
             type(runtime_bot.game_state.player), "is_former_sub", property(lambda _player: False)
         )
 
-    def test_auto_bot_harvests_without_bank_access_when_pods_are_available(
+    def test_configurable_auto_harvests_without_bank_access_when_pods_are_available(
         self, runtime_bot: Bot, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         self._set_no_bank_access(runtime_bot, monkeypatch)
@@ -41,15 +41,15 @@ class TestFarmRecovery:
         runtime_bot.game_state.inventory.weight_max = 1_000
         play_multi_farming = MagicMock()
         play_fighter = MagicMock()
-        monkeypatch.setattr(runtime_bot.auto_bot_behavior, "play_multi_farming", play_multi_farming)
-        monkeypatch.setattr(runtime_bot.auto_bot_behavior, "play_fighter", play_fighter)
+        monkeypatch.setattr(runtime_bot.configurable_auto_behavior, "play_multi_farming", play_multi_farming)
+        monkeypatch.setattr(runtime_bot.configurable_auto_behavior, "play_fighter", play_fighter)
 
-        runtime_bot.auto_bot_behavior.play()
+        runtime_bot.configurable_auto_behavior.play()
 
         play_multi_farming.assert_called_once_with()
         play_fighter.assert_not_called()
 
-    def test_auto_bot_fights_without_bank_access_when_pods_are_full(
+    def test_configurable_auto_fights_without_bank_access_when_pods_are_full(
         self, runtime_bot: Bot, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         self._set_no_bank_access(runtime_bot, monkeypatch)
@@ -58,15 +58,15 @@ class TestFarmRecovery:
         inventory.weight_max = 1_000
         play_multi_farming = MagicMock()
         play_fighter = MagicMock()
-        monkeypatch.setattr(runtime_bot.auto_bot_behavior, "play_multi_farming", play_multi_farming)
-        monkeypatch.setattr(runtime_bot.auto_bot_behavior, "play_fighter", play_fighter)
+        monkeypatch.setattr(runtime_bot.configurable_auto_behavior, "play_multi_farming", play_multi_farming)
+        monkeypatch.setattr(runtime_bot.configurable_auto_behavior, "play_fighter", play_fighter)
 
-        runtime_bot.auto_bot_behavior.play()
+        runtime_bot.configurable_auto_behavior.play()
 
         play_fighter.assert_called_once_with()
         play_multi_farming.assert_not_called()
 
-    def test_auto_bot_harvests_with_bank_access_when_pods_are_full(
+    def test_configurable_auto_harvests_with_bank_access_when_pods_are_full(
         self, runtime_bot: Bot, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.setattr(type(runtime_bot.game_state.player), "is_sub", property(lambda _player: True))
@@ -75,10 +75,10 @@ class TestFarmRecovery:
         runtime_bot.game_state.inventory.weight_max = 1_000
         play_multi_farming = MagicMock()
         play_fighter = MagicMock()
-        monkeypatch.setattr(runtime_bot.auto_bot_behavior, "play_multi_farming", play_multi_farming)
-        monkeypatch.setattr(runtime_bot.auto_bot_behavior, "play_fighter", play_fighter)
+        monkeypatch.setattr(runtime_bot.configurable_auto_behavior, "play_multi_farming", play_multi_farming)
+        monkeypatch.setattr(runtime_bot.configurable_auto_behavior, "play_fighter", play_fighter)
 
-        runtime_bot.auto_bot_behavior.play()
+        runtime_bot.configurable_auto_behavior.play()
 
         play_multi_farming.assert_called_once_with()
         play_fighter.assert_not_called()
@@ -87,7 +87,9 @@ class TestFarmRecovery:
     def _prepare_sourcing(
         runtime_bot: Bot, monkeypatch: pytest.MonkeyPatch, *, is_former_sub: bool
     ) -> tuple[AcquireItemsBehavior, MagicMock]:
-        acquire_items_behavior = runtime_bot.auto_bot_behavior.auto_equipment_behavior.acquire_items_behavior
+        acquire_items_behavior = (
+            runtime_bot.configurable_auto_behavior.auto_equipment_behavior.acquire_items_behavior
+        )
         sale_hotel_start = MagicMock()
         monkeypatch.setattr(acquire_items_behavior.sale_hotel_buy_behavior, "start", sale_hotel_start)
         monkeypatch.setattr(acquire_items_behavior.load_from_bank_behavior, "start", MagicMock())

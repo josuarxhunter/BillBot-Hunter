@@ -1,3 +1,4 @@
+from src.protocol import initialize_protocol
 import atexit
 import datetime
 import json
@@ -68,11 +69,13 @@ _cached_game_mappings_mtime_ns: int | None = None
 def _load_game_mappings() -> SimpleGameMappingsDocument:
     global _cached_game_mappings, _cached_game_mappings_mtime_ns
 
+    initialize_protocol()
+
     current_mtime_ns = _GAME_MAPPINGS_PATH.stat().st_mtime_ns
     if _cached_game_mappings is not None and _cached_game_mappings_mtime_ns == current_mtime_ns:
         return _cached_game_mappings
 
-    with open(_GAME_MAPPINGS_PATH) as file:
+    with open(_GAME_MAPPINGS_PATH, encoding="utf-8") as file:
         game_mappings = SimpleGameMappingsDocument.model_validate(json.load(file))
 
     _cached_game_mappings = game_mappings
@@ -272,6 +275,7 @@ def get_msg_transformer(
     msg_full_name: str,
     msg_mappings: ProtoToRealMapping | ProtoToObfMapping,
 ) -> MessageTransformer | None:
+    initialize_protocol()
     related_mapping = msg_mappings.get(msg_full_name)
     if not related_mapping:
         return None

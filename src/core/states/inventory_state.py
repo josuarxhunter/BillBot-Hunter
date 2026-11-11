@@ -46,10 +46,22 @@ class InventoryState(State):
         for object_item in self.bank_objects_by_uid.values():
             gid = object_item.item.gid
             if gid not in objects_by_gid:
-                objects_by_gid[gid] = object_item
+                objects_by_gid[gid] = ObjectItemInventory()
+                objects_by_gid[gid].CopyFrom(object_item)
             else:
                 objects_by_gid[gid].item.quantity += object_item.item.quantity
         return objects_by_gid
+
+    def get_harvest_stock_by_gid(self) -> dict[int, ObjectItemInventory]:
+        stock = self.get_bank_objects_by_gid()
+        for object_item in self.objects_by_uid.values():
+            gid = object_item.item.gid
+            if gid not in stock:
+                stock[gid] = ObjectItemInventory()
+                stock[gid].CopyFrom(object_item)
+            else:
+                stock[gid].item.quantity += object_item.item.quantity
+        return stock
 
     def get_bank_object_by_gid(self, gid: int) -> ObjectItemInventory | None:
         return next(

@@ -40,17 +40,69 @@ class RouteFailureAction(StrEnum):
     CHANGE_AREA = "change_area"
 
 
+class HarvestGoal(StrEnum):
+    BALANCED = "balanced"
+    PROFIT = "profit"
+    EXPERIENCE = "experience"
+    TARGETS = "targets"
+
+
 class ConfigurableAutoSettings(BaseModel):
     model_config = ConfigDict(frozen=True, strict=True, extra="forbid")
 
     area_id: int | None = None
     sub_area_id: int | None = None
     on_route_failure: RouteFailureAction = RouteFailureAction.STOP
+    goal: HarvestGoal = HarvestGoal.BALANCED
+    target_resource_ids: tuple[int, ...] = ()
+    target_quantity: int = Field(default=0, ge=0, le=1_000_000)
+    price_half_life_hours: int = Field(default=168, ge=1, le=8760)
+    rotation_minutes: int = Field(default=60, ge=5, le=240)
+    minimum_stay_minutes: int = Field(default=10, ge=0, le=240)
+    minimum_improvement_percent: int = Field(default=20, ge=0, le=500)
+    candidate_quality_percent: int = Field(default=80, ge=1, le=100)
+    empty_map_limit: int = Field(default=5, ge=1, le=100)
+    productivity_window_minutes: int = Field(default=10, ge=1, le=120)
+    minimum_collections_per_minute: float = Field(default=0.2, ge=0, le=60)
+    retry_seconds: int = Field(default=60, ge=5, le=3600)
+    zone_cooldown_minutes: int = Field(default=15, ge=1, le=240)
+    reserve_kamas: int = Field(default=1000, ge=0, le=10_000_000)
+    maximum_zaap_cost: int = Field(default=2000, ge=0, le=100_000)
+    seconds_per_map: int = Field(default=15, ge=1, le=120)
+    teleport_seconds: int = Field(default=30, ge=1, le=300)
+    travel_value_per_minute: int = Field(default=1000, ge=1, le=1_000_000)
+    discover_zaaps: bool = False
+    occasional_combat: bool = True
+    combat_interval_minutes: int = Field(default=20, ge=1, le=240)
+    recovery_combat: bool = False
+    recovery_combat_minutes: int = Field(default=5, ge=1, le=30)
 
     @model_validator(mode="after")
     def validate_zone(self) -> Self:
         if self.sub_area_id is not None and self.area_id is None:
             raise ValueError("A subarea requires an area.")
+        if self.minimum_stay_minutes > self.rotation_minutes:
+            raise ValueError("Minimum stay cannot exceed the rotation interval.")
+        if any(resource_id <= 0 for resource_id in self.target_resource_ids):
+            raise ValueError("Resource identifiers must be positive.")
+        if self.goal is HarvestGoal.TARGETS and not self.target_resource_ids:
+            raise ValueError("Select at least one target resource.")
+        return self
+
+
+class DungeonSettings(BaseModel):
+    model_config = ConfigDict(frozen=True, strict=True, extra="forbid")
+
+    dungeon_id: int | None = Field(default=None, gt=0)
+    follow_sequence: bool = False
+    sequence: tuple[int, ...] = ()
+
+    @model_validator(mode="after")
+    def validate_sequence(self) -> Self:
+        if any(dungeon_id <= 0 for dungeon_id in self.sequence):
+            raise ValueError("Dungeon identifiers must be positive.")
+        if self.follow_sequence and not self.sequence:
+            raise ValueError("Add at least one dungeon to the sequence.")
         return self
 
 
@@ -62,6 +114,7 @@ class GlobalSettings(BaseModel):
     language: GameLanguage = "fr"
     sonji_api_key: str | None = None
     configurable_auto_by_account: dict[str, ConfigurableAutoSettings] = Field(default_factory=dict)
+    dungeons_by_account: dict[str, DungeonSettings] = Field(default_factory=dict)
 
 
 FIGHT_GROUP_LVL_MULTIPLIER = 2
@@ -86,10 +139,6 @@ MIN_KAMAS_TO_GO_SALE_HOTEL = 1_500
 
 def get_time_beween_sale_hotel_prices():
     return datetime.timedelta(hours=4, minutes=0) * uniform(0.75, 1.25)
-
-
-def get_time_beween_areas():
-    return datetime.timedelta(hours=1) * uniform(0.75, 1.25)
 
 
 def get_time_between_attacker(enabled: bool) -> datetime.timedelta:

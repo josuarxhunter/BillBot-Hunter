@@ -10,13 +10,17 @@ class FarmDecision:
     next_action: str
     area_id: int | None = None
     sub_area_id: int | None = None
+    priority_resource_ids: tuple[int, ...] = ()
+    travel_seconds: float | None = None
+    travel_budget: int | None = None
+    waypoint_map_id: int | None = None
 
 
 class BotSignals(QObject):
-    play_harvester = pyqtSignal(object, object)
     play_fighter = pyqtSignal(object, object)
-    play_auto_bot = pyqtSignal()
     play_configurable_auto = pyqtSignal(object)
+    play_dungeons = pyqtSignal(object)
+    dungeon_status_changed = pyqtSignal(str)
     configurable_auto_decision = pyqtSignal(object)
     play_crafter = pyqtSignal(object)
     play_usable_behavior = pyqtSignal(str)

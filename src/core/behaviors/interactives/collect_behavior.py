@@ -1,4 +1,5 @@
 import random
+from DBDofusUnity.dofus_unity_reader.data_center.data_reader import DataReader
 from dataclasses import dataclass, field
 from enum import StrEnum, auto
 from functools import partial
@@ -15,11 +16,13 @@ from src.core.behaviors.interactives.interactive_behavior import (
 from src.core.behaviors.movements.map_change_behavior import MapChangeError
 from src.core.behaviors.movements.map_move_behavior import MapMoveError
 from src.core.config import (
+    HarvestGoal,
     BETWEEN_COLLECT_PAUSE_PROBABILITY,
     FIRST_COLLECT_MOVEMENT_CANCEL_PROBABILITY,
     SUBSEQUENT_COLLECT_MOVEMENT_CANCEL_PROBABILITY,
 )
 from src.core.engine.interactives.collectable import Collectable
+from src.core.engine.weights.harvester.weight_collectable import get_weight_collectable
 from src.core.engine.movements.map.path_finding.movement_path import MovementPath
 from src.core.engine.movements.map.path_finding.path_finding import Pathfinding
 from src.services.human_timings import HumanTimingsService
@@ -57,6 +60,24 @@ class CollectBehavior(Behavior):
             return self.finish(CollectError.FULL_PODS)
 
         collectables = self.game_state.interactive.get_farmable_collectables(self.excluded_element_ids)
+        preferences = self.game_state.configurable_auto
+        if preferences is not None:
+            stock = self.game_state.inventory.get_harvest_stock_by_gid()
+            collectables = [
+                collectable
+                for collectable in collectables
+                if (
+                    preferences.goal is not HarvestGoal.TARGETS
+                    or (
+                        collectable.resource_item_id in preferences.target_resource_ids
+                        and (
+                            not preferences.target_quantity
+                            or collectable.resource_item_id not in stock
+                            or stock[collectable.resource_item_id].item.quantity < preferences.target_quantity
+                        )
+                    )
+                )
+            ]
         if self.target_resource_item_ids:
             collectables = [
                 collectable
@@ -144,6 +165,8 @@ class CollectBehavior(Behavior):
         collectables: list[Collectable],
     ) -> tuple[MovementPath, Collectable] | None:
         near_coll_info: tuple[MovementPath, Collectable, float] | None = None
+        preferences = self.game_state.configurable_auto
+        stock = self.game_state.inventory.get_harvest_stock_by_gid() if preferences is not None else {}
         for collectable in collectables:
             coll_move_path = self.path_finding.get_interactive_near_path(
                 self.game_state.get_map_movement_context(),
@@ -158,6 +181,20 @@ class CollectBehavior(Behavior):
                 self.game_state.inventory.inventory_weight,
                 self.game_state.inventory.weight_max,
             )
+            if preferences is not None:
+                job_id = DataReader().skill_by_id[collectable.skill.skill_id].parentJobId
+                value = get_weight_collectable(
+                    job_id,
+                    self.game_state.player.jobs_lvl_by_id.get(job_id, 1),
+                    collectable.resource_item_id,
+                    stock,
+                    self.game_state.player.is_sub,
+                    self.game_state.player.server_id,
+                    preferences,
+                )
+                if value <= 0:
+                    continue
+                coll_cost = (1 + coll_cost) / value
             if near_coll_info is None or near_coll_info[2] > coll_cost:
                 near_coll_info = (coll_move_path, collectable, coll_cost)
                 if coll_cost == 0:

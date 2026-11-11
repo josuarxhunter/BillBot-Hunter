@@ -8,6 +8,7 @@ from qfluentwidgets import (
     FluentIcon,
     SegmentedWidget,
     TransparentToolButton,
+    SingleDirectionScrollArea,
 )
 
 from DBDofusUnity.dofus_unity_reader.data_center.data_reader import DataReader
@@ -17,6 +18,7 @@ from src.core.bot.bot import Bot
 from src.core.signals.bot_signals import FarmDecision
 from src.gui.pages.farmer.bank_tab import BankTab
 from src.gui.pages.farmer.configurable_auto_panel import ConfigurableAutoPanel
+from src.gui.pages.farmer.dungeon_panel import DungeonPanel
 from src.gui.pages.farmer.inventory_tab import InventoryTab
 from src.gui.pages.farmer.map_tab import MapTab
 from src.gui.pages.farmer.player_tab import PlayerTab
@@ -26,9 +28,8 @@ from src.gui.i18n import tr
 
 
 class FarmActionEnum(StrEnum):
-    AUTO = "Automatic"
     CONFIGURABLE_AUTO = "Configurable automatic"
-    HARVESTER = "Harvesting"
+    DUNGEONS = "Dungeons"
     FIGHTER = "Combat"
 
 
@@ -64,13 +65,24 @@ class FarmerWidget(QWidget):
 
         self.init_top_content()
 
+        self.init_content()
         if config.DEBUG:
-            self.init_content()
             self._create_debug_tabs()
+        parameters = SingleDirectionScrollArea(self)
+        parameters.setWidgetResizable(True)
+        parameters.setWidget(self.parameter_panels)
+        parameters.enableTransparentBackground()
+        self.configurable_auto_panel.setAutoFillBackground(False)
+        self.dungeon_panel.setAutoFillBackground(False)
+        self.stacked_widget.addWidget(parameters)
+        self._add_debug_tab("parameters", tr("Parameters"), parameters)
+        if not config.DEBUG:
+            self.stacked_widget.setCurrentWidget(parameters)
+            self.pivot.setCurrentItem("parameters")
 
-        self.bot.bot_signals.play_harvester.connect(self.on_play_harvester)
         self.bot.bot_signals.play_crafter.connect(self.on_play_craft)
-        self.bot.bot_signals.play_auto_bot.connect(self.on_play_auto)
+        self.bot.bot_signals.play_configurable_auto.connect(self.on_play_configurable_auto)
+        self.bot.bot_signals.play_dungeons.connect(self.on_play_dungeons)
         self.bot.bot_signals.play_fighter.connect(self.on_play_fighter)
 
     def init_top_content(self) -> None:
@@ -119,7 +131,14 @@ class FarmerWidget(QWidget):
         self.configurable_auto_panel = ConfigurableAutoPanel(
             self.bot.account.apikey.accountId, self.bot.bot_signals, self
         )
-        self._v_layout.addWidget(self.configurable_auto_panel)
+        self.dungeon_panel = DungeonPanel(self.bot.account.apikey.accountId, self)
+        self.bot.bot_signals.dungeon_status_changed.connect(self.dungeon_panel.show_result)
+        self.parameter_panels = QStackedWidget(self)
+        self.parameter_panels.addWidget(self.configurable_auto_panel)
+        self.parameter_panels.addWidget(self.dungeon_panel)
+        self.empty_parameters = QWidget(self)
+        self.parameter_panels.addWidget(self.empty_parameters)
+        self._v_layout.addWidget(self.configurable_auto_panel.status_widget)
         self.on_type_action_changed()
 
     def init_content(self) -> None:
@@ -131,10 +150,18 @@ class FarmerWidget(QWidget):
     @pyqtSlot()
     def on_type_action_changed(self) -> None:
         current_action = self.type_action_combo.currentData()
-        show_zone = current_action in (FarmActionEnum.HARVESTER, FarmActionEnum.FIGHTER)
+        show_zone = current_action == FarmActionEnum.FIGHTER
         self.area_farm_combo.setVisible(show_zone)
         self.sub_area_farm_combo.setVisible(show_zone)
-        self.configurable_auto_panel.setVisible(current_action == FarmActionEnum.CONFIGURABLE_AUTO)
+        self.configurable_auto_panel.status_widget.setVisible(
+            current_action == FarmActionEnum.CONFIGURABLE_AUTO
+        )
+        if current_action == FarmActionEnum.CONFIGURABLE_AUTO:
+            self.parameter_panels.setCurrentWidget(self.configurable_auto_panel)
+        elif current_action == FarmActionEnum.DUNGEONS:
+            self.parameter_panels.setCurrentWidget(self.dungeon_panel)
+        else:
+            self.parameter_panels.setCurrentWidget(self.empty_parameters)
         self.play_btn.setDisabled(current_action == CraftActionEnum.CRAFTER)
 
     @pyqtSlot()
@@ -155,12 +182,22 @@ class FarmerWidget(QWidget):
     @pyqtSlot()
     def on_click_play(self) -> None:
         action = self.type_action_combo.currentData()
+        if action == FarmActionEnum.DUNGEONS:
+            preferences = self.dungeon_panel.save()
+            if preferences is not None:
+                self.bot.bot_signals.play.emit(True)
+                self.bot.bot_signals.play_dungeons.emit(preferences)
+            return
         if action == FarmActionEnum.CONFIGURABLE_AUTO:
             preferences = self.configurable_auto_panel.save()
             if preferences is not None:
-                self.configurable_auto_panel.show_decision(FarmDecision(
-                    "Preparing", "Starting the selected account.", "Connect and check equipment.",
-                ))
+                self.configurable_auto_panel.show_decision(
+                    FarmDecision(
+                        "Preparing",
+                        "Starting the selected account.",
+                        "Connect and check equipment.",
+                    )
+                )
                 self.bot.bot_signals.play.emit(True)
                 self.bot.bot_signals.play_configurable_auto.emit(preferences)
             return
@@ -168,12 +205,8 @@ class FarmerWidget(QWidget):
         area_id = self.area_farm_combo.currentData()
         sub_area_id = self.sub_area_farm_combo.currentData()
         self.bot.bot_signals.play.emit(True)
-        if action == FarmActionEnum.HARVESTER:
-            self.bot.bot_signals.play_harvester.emit(area_id, sub_area_id)
-        elif action == FarmActionEnum.FIGHTER:
+        if action == FarmActionEnum.FIGHTER:
             self.bot.bot_signals.play_fighter.emit(area_id, sub_area_id)
-        elif action == FarmActionEnum.AUTO:
-            self.bot.bot_signals.play_auto_bot.emit()
         elif action not in FarmActionEnum:
             self.bot.bot_signals.play_usable_behavior.emit(action)
 
@@ -185,20 +218,23 @@ class FarmerWidget(QWidget):
         self.area_farm_combo.setDisabled(True)
         self.sub_area_farm_combo.setDisabled(True)
         self.configurable_auto_panel.set_running(True)
-
-    @pyqtSlot(object, object)
-    def on_play_harvester(self, area_id: int | None, sub_area_id: int | None) -> None:
-        self.type_action_combo.setCurrentIndex(self.type_action_combo.findData(FarmActionEnum.HARVESTER))
-        self.on_played_zone(area_id, sub_area_id)
+        self.dungeon_panel.set_running(True)
 
     @pyqtSlot(object, object)
     def on_play_fighter(self, area_id: int | None, sub_area_id: int | None) -> None:
         self.type_action_combo.setCurrentIndex(self.type_action_combo.findData(FarmActionEnum.FIGHTER))
         self.on_played_zone(area_id, sub_area_id)
 
-    @pyqtSlot()
-    def on_play_auto(self) -> None:
-        self.type_action_combo.setCurrentIndex(self.type_action_combo.findData(FarmActionEnum.AUTO))
+    @pyqtSlot(object)
+    def on_play_configurable_auto(self, _: object) -> None:
+        self.type_action_combo.setCurrentIndex(
+            self.type_action_combo.findData(FarmActionEnum.CONFIGURABLE_AUTO)
+        )
+        self.on_played_zone(None, None)
+
+    @pyqtSlot(object)
+    def on_play_dungeons(self, _: object) -> None:
+        self.type_action_combo.setCurrentIndex(self.type_action_combo.findData(FarmActionEnum.DUNGEONS))
         self.on_played_zone(None, None)
 
     @pyqtSlot(object)
@@ -228,6 +264,7 @@ class FarmerWidget(QWidget):
         self.area_farm_combo.setDisabled(False)
         self.sub_area_farm_combo.setDisabled(False)
         self.configurable_auto_panel.set_running(False)
+        self.dungeon_panel.set_running(False)
         if self.type_action_combo.currentData() == FarmActionEnum.CONFIGURABLE_AUTO:
             self.configurable_auto_panel.show_stopped()
 

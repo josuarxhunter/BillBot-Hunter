@@ -36,6 +36,8 @@ class CraftPage(QWidget):
 
         self.main_layout.addWidget(self.craft_table)
         self.main_layout.addWidget(self.craft_group)
+        if self.bot.is_playing_event.is_set():
+            self.on_play(False)
 
     @pyqtSlot(object)
     def on_removed_recipe_queue(self, recipe: RecipeItem):

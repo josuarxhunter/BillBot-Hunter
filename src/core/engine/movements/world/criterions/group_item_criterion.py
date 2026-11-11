@@ -81,6 +81,10 @@ class GroupItemCriterion(IItemCriterion):
                 return False
             return item_criterion.is_respected(context)
 
+        # Unsupported unary group operators must reject the passage, not abort navigation.
+        if len(self.operators) != len(self.items_criterion) - 1:
+            return False
+
         first_criterion = self.items_criterion[0]
         result = first_criterion is not None and first_criterion.is_respected(context)
         for operator, criterion in zip(self.operators, self.items_criterion[1:], strict=True):

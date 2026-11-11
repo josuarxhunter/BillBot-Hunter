@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from PyQt6.QtWidgets import QStackedWidget, QVBoxLayout, QWidget
 from qfluentwidgets import PivotItem, SegmentedWidget
 
@@ -6,8 +10,9 @@ from src.core import config
 from src.core.bot.bot import Bot
 from src.core.signals.log_signals import LogSignals
 from src.gui.fragments.account_quick_info import AccountQuickInfoWidget
-from src.gui.pages.craft.craft_page import CraftPage
-from src.gui.pages.debugs.sniffer import SnifferWidget
+if TYPE_CHECKING:
+    from src.gui.pages.craft.craft_page import CraftPage
+    from src.gui.pages.debugs.sniffer import SnifferWidget
 from src.gui.pages.farmer.farmer import FarmerWidget
 from src.gui.i18n import tr
 
@@ -67,14 +72,14 @@ class AccountStackedWidget(QWidget):
         if config.DEBUG:
             self._init_debug_interface()
 
-        self.craft_interface = CraftPage(self.bot, parent=self.stacked_widget)
-        self.stacked_widget.addWidget(self.craft_interface)
+        self.craft_interface: CraftPage | None = None
+        self.sniffer_interface: SnifferWidget | None = None
         self.craft_route = f"{login}_craft"
         self._require_pivot_item(
             self.pivot.addItem(
                 routeKey=self.craft_route,
                 text=tr("Craft"),
-                onClick=lambda: self.stacked_widget.setCurrentWidget(self.craft_interface),
+                onClick=self._show_craft_interface,
             ),
             self.craft_route,
         )
@@ -85,17 +90,31 @@ class AccountStackedWidget(QWidget):
         self.farmer_pivot_item.click()
 
     def _init_debug_interface(self) -> None:
-        sniffer_interface = SnifferWidget(self.bot, self.global_log_signals, parent=self.stacked_widget)
-        self.stacked_widget.addWidget(sniffer_interface)
         self.sniffer_route = f"{self.login}_sniffer"
         self._require_pivot_item(
             self.pivot.addItem(
                 routeKey=self.sniffer_route,
                 text=tr("Debug"),
-                onClick=lambda: self.stacked_widget.setCurrentWidget(sniffer_interface),
+                onClick=self._show_debug_interface,
             ),
             self.sniffer_route,
         )
+
+    def _show_craft_interface(self) -> None:
+        from src.gui.pages.craft.craft_page import CraftPage
+
+        if self.craft_interface is None:
+            self.craft_interface = CraftPage(self.bot, parent=self.stacked_widget)
+            self.stacked_widget.addWidget(self.craft_interface)
+        self.stacked_widget.setCurrentWidget(self.craft_interface)
+
+    def _show_debug_interface(self) -> None:
+        from src.gui.pages.debugs.sniffer import SnifferWidget
+
+        if self.sniffer_interface is None:
+            self.sniffer_interface = SnifferWidget(self.bot, self.global_log_signals, parent=self.stacked_widget)
+            self.stacked_widget.addWidget(self.sniffer_interface)
+        self.stacked_widget.setCurrentWidget(self.sniffer_interface)
 
     def set_snapshot_sub_area_name(self, sub_area_name: str | None) -> None:
         if self.quick_info_widget is not None:

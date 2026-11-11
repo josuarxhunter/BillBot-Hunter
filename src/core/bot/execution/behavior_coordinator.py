@@ -14,13 +14,13 @@ from DBDofusUnity.dofus_unity_reader.models.datas.recipe_root import RecipeItem
 from src.controller.bot_config import BotConfig
 from src.controller.settings import SettingsService
 from src.core.behaviors.behavior import Behavior, BehaviorState
+from src.core.behaviors.recovery_behavior import ActionStartupBehavior
 from src.core.behaviors.craft.craft_behavior import CraftBehavior, CraftRequest
-from src.core.behaviors.farms.auto_bot_behavior import AutoBotBehavior
 from src.core.behaviors.farms.configurable_auto_behavior import ConfigurableAutoBehavior
 from src.core.behaviors.farms.fight.fight_behavior import FightBehavior
 from src.core.behaviors.farms.fight.fighter_behavior import FighterBehavior
-from src.core.behaviors.farms.harvest.harvester_behavior import HarvesterBehavior
-from src.core.config import ConfigurableAutoSettings
+from src.core.behaviors.quests.dungeon_behavior import DungeonBehavior
+from src.core.config import ConfigurableAutoSettings, DungeonSettings
 from src.core.events_manager.event_manager import EventManager
 from src.core.signals.bot_signals import BotSignals
 from src.core.signals.shared_farm_signals import SharedSignals
@@ -39,11 +39,11 @@ class BehaviorCoordinator(ContextualLogger):
     event_manager: EventManager
 
     fight_behavior: FightBehavior
-    harvester_behavior: HarvesterBehavior
     fighter_behavior: FighterBehavior
     craft_behavior: CraftBehavior
-    auto_bot_behavior: AutoBotBehavior
     configurable_auto_behavior: ConfigurableAutoBehavior
+    dungeon_behavior: DungeonBehavior
+    action_startup_behavior: ActionStartupBehavior
     usable_behaviors: list[Behavior]
 
     bot_signals: BotSignals
@@ -55,9 +55,12 @@ class BehaviorCoordinator(ContextualLogger):
 
     _current_bot_action_func: Callable[[Callable[[str], None]], None] | None = field(init=False, default=None)
 
+    _recover_dungeon_on_start: bool = field(init=False, default=True)
+    _action_generation: int = field(init=False, default=0)
+
     def on_play(self, from_manual_play: bool):
         if from_manual_play:
-            self.auto_bot_behavior.game_state.apply_settings(SettingsService().get().behaviors)
+            self.configurable_auto_behavior.game_state.apply_settings(SettingsService().get().behaviors)
             self.from_manual_play.set()
             UserActivityService().record("info", "Manual startup requested.", login=self.account.apikey.login)
         else:
@@ -69,10 +72,19 @@ class BehaviorCoordinator(ContextualLogger):
             )
 
     def on_stop(self):
-        self.is_playing_event.clear()
-        self._current_bot_action_func = None
+        with self.event_manager.lock:
+            self._action_generation += 1
+            self.is_playing_event.clear()
+            self._current_bot_action_func = None
+            generation = self._action_generation
         self.bot_signals.automation_status_changed.emit("")
-        run_in_background(lambda _progress_callback: self.stop_behaviors())
+
+        def stop_if_current(_progress_callback: Callable[[str], None]) -> None:
+            with self.event_manager.lock:
+                if generation == self._action_generation:
+                    self.stop_behaviors()
+
+        run_in_background(stop_if_current)
 
     def on_play_usable_behavior(self, behavior_class_name: str):
         related_behavior = next(
@@ -84,16 +96,6 @@ class BehaviorCoordinator(ContextualLogger):
             lambda _progress_callback: related_behavior.start(  # type: ignore
                 callback=lambda *_args: self.bot_signals.stop.emit(),  # type: ignore
                 parent=None,
-            )
-        )
-
-    def on_play_harvester(self, area_id: int | None, sub_area_id: int | None):
-        self.play_action(
-            lambda _progress_callback: self.harvester_behavior.start(
-                callback=lambda *_args: self.bot_signals.stop.emit(),
-                parent=None,
-                area_id=area_id,
-                sub_area_id=sub_area_id,
             )
         )
 
@@ -111,18 +113,9 @@ class BehaviorCoordinator(ContextualLogger):
             )
         )
 
-    def on_play_auto_bot(self):
-        self.bot_signals.automation_status_changed.emit("Preparing automatic mode…")
-        self.play_action(
-            lambda _progress_callback: self.auto_bot_behavior.start(
-                callback=lambda *_args: self.bot_signals.stop.emit(),
-                parent=None,
-                area_id=None,
-                sub_area_id=None,
-            )
-        )
-
-    def on_play_configurable_auto(self, preferences: ConfigurableAutoSettings) -> None:
+    def on_play_configurable_auto(self, preferences: ConfigurableAutoSettings | None = None) -> None:
+        if preferences is None:
+            preferences = SettingsService().configurable_auto(self.account.apikey.accountId)
         self.play_action(
             lambda _progress_callback: self.configurable_auto_behavior.start(
                 callback=lambda *_args: self.bot_signals.stop.emit(),
@@ -130,6 +123,21 @@ class BehaviorCoordinator(ContextualLogger):
                 preferences=preferences,
             )
         )
+
+    def on_play_dungeons(self, preferences: DungeonSettings) -> None:
+        self.bot_signals.dungeon_status_changed.emit("")
+        self.play_action(
+            lambda _progress_callback: self.dungeon_behavior.start(
+                callback=self.on_dungeons_finished,
+                parent=None,
+                preferences=preferences,
+            ),
+            recover_dungeon=False,
+        )
+
+    def on_dungeons_finished(self, error_code: str | None) -> None:
+        self.bot_signals.dungeon_status_changed.emit(error_code or "Dungeon sequence completed.")
+        self.bot_signals.stop.emit()
 
     def on_play_crafter(self, recipes: list[RecipeItem]):
         self.play_action(
@@ -140,26 +148,66 @@ class BehaviorCoordinator(ContextualLogger):
             )
         )
 
-    def play_action(self, func: Callable[[Callable[[str], None]], None]) -> None:
-        self.stop_behaviors()
-        self._current_bot_action_func = func
+    def play_action(
+        self, func: Callable[[Callable[[str], None]], None], *, recover_dungeon: bool = True
+    ) -> None:
+        with self.event_manager.lock:
+            self._action_generation += 1
+            self.stop_behaviors()
+            self._recover_dungeon_on_start = recover_dungeon
+            self._current_bot_action_func = func
         if not self.is_connected_event.is_set():
             self.shared_signals.launch_account.emit(self.account.apikey.login)
         elif self.is_ready_to_play_event.is_set():
-            run_in_background(self._current_bot_action_func)
+            self.run_current_bot_action()
         else:
             self.logger.info("character is probably connecting, waiting...")
 
     def run_current_bot_action(self) -> None:
         if self._current_bot_action_func is not None:
-            run_in_background(self._current_bot_action_func)
+            action = self._current_bot_action_func
+            generation = self._action_generation
+
+            def prepare(progress: Callable[[str], None]) -> None:
+                with self.event_manager.lock:
+                    if (
+                        generation != self._action_generation
+                        or not self.is_connected_event.is_set()
+                        or not self.is_ready_to_play_event.is_set()
+                        or self.running_top_level_behaviors()
+                    ):
+                        return
+
+                    def on_prepared(error_code: str | None) -> None:
+                        if (
+                            generation != self._action_generation
+                            or not self.is_connected_event.is_set()
+                            or not self.is_ready_to_play_event.is_set()
+                        ):
+                            return
+                        if error_code is not None:
+                            self.logger.warning("Cannot resume the selected action: %s", error_code)
+                            UserActivityService().record(
+                                "warning", f"Cannot resume the selected action: {error_code}",
+                                login=self.account.apikey.login,
+                            )
+                            self.bot_signals.automation_status_changed.emit(error_code)
+                            self.bot_signals.stop.emit()
+                            return
+                        action(progress)
+
+                    self.action_startup_behavior.start(
+                        callback=on_prepared, parent=None, recover_dungeon=self._recover_dungeon_on_start
+                    )
+
+            run_in_background(prepare)
         else:
             self.guess_bot_action()
 
     def guess_bot_action(self) -> None:
         config = self.get_bot_config()
         if config is not None and config.schedule_profile is not None:
-            self.bot_signals.play_auto_bot.emit()
+            self.bot_signals.play_configurable_auto.emit(None)
 
     def stop_behaviors(self) -> None:
         with self.event_manager.lock:

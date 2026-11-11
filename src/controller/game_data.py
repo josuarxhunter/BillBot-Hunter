@@ -1,6 +1,7 @@
 from collections import defaultdict
 from pathlib import Path
 from threading import RLock
+from time import time
 
 from utils.singleton import Singleton
 from DBDofusUnity.dofus_unity_reader.game_constants.job import JobEnum
@@ -11,6 +12,7 @@ from src.consts import RESOURCE_FOLDER
 
 class SaleHotelServerData(BaseModel):
     avg_price_by_gid: dict[int, float] = Field(default_factory=dict[int, float])
+    price_observed_at_by_gid: dict[int, float] = Field(default_factory=dict[int, float])
     bid_seller_item_by_uid_by_player_id: dict[int, dict[int, tuple[int, int, int]]] = Field(
         default_factory=dict[int, dict[int, tuple[int, int, int]]]
     )
@@ -97,6 +99,13 @@ class GameDataController(metaclass=Singleton):
     def get_avg_price_by_gid(self, server_id: int) -> dict[int, float]:
         return self.get_sale_hotel_server(server_id).avg_price_by_gid
 
+    def get_price_confidence(self, server_id: int, gid: int, half_life_hours: int) -> float:
+        observed_at = self.get_sale_hotel_server(server_id).price_observed_at_by_gid.get(gid)
+        if observed_at is None:
+            return 0.5
+        age_hours = max(0, time() - observed_at) / 3600
+        return 1 / (1 + age_hours / half_life_hours)
+
     def add_multiple_avg_price_by_gid(
         self,
         server_id: int,
@@ -113,6 +122,7 @@ class GameDataController(metaclass=Singleton):
             for avg_price, gid in avg_price_gid_array:
                 if avg_price != 0:
                     server_data.avg_price_by_gid[gid] = avg_price
+                    server_data.price_observed_at_by_gid[gid] = time()
             self._save(game_data)
 
     def get_hdv_by_uid_by_player(

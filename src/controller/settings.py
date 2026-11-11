@@ -6,7 +6,7 @@ from typing import cast
 from ankama_launcher_emulator.utils.atomic_file import acquire_file_lock, atomic_write_text
 from pydantic import ValidationError
 
-from src.core.config import BehaviorSettings, ConfigurableAutoSettings, GlobalSettings
+from src.core.config import BehaviorSettings, ConfigurableAutoSettings, DungeonSettings, GlobalSettings
 from src.utils.project_paths import USER_DATA_ROOT
 from src.utils.runtime_support import RuntimeSetupError
 from utils.language import GameLanguage
@@ -90,3 +90,12 @@ class SettingsService(metaclass=Singleton):
             settings = self.get()
             by_account = {**settings.configurable_auto_by_account, str(account_id): preferences}
             self._save(settings.model_copy(update={"configurable_auto_by_account": by_account}))
+
+    def dungeons(self, account_id: int) -> DungeonSettings:
+        return self.get().dungeons_by_account.get(str(account_id), DungeonSettings())
+
+    def update_dungeons(self, account_id: int, preferences: DungeonSettings) -> None:
+        with self._lock:
+            settings = self.get()
+            by_account = {**settings.dungeons_by_account, str(account_id): preferences}
+            self._save(settings.model_copy(update={"dungeons_by_account": by_account}))

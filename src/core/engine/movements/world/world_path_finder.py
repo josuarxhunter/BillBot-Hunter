@@ -1,6 +1,7 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from DBDofusUnity.dofus_unity_reader.data_center.world_graph_reader import WorldGraphReader
+from DBDofusUnity.dofus_unity_reader.game_constants.map_id import DESTINATION_ACCESS_MAP_IDS
 from DBDofusUnity.dofus_unity_reader.models.world_graph import Edge, Vertice
 
 from src.core.engine.contexts import WorldPathContext
@@ -38,5 +39,14 @@ class WorldPathFinder:
 
         if len(dst_vertexes) == 0:
             return None
+        access_map_ids = frozenset(
+            map_id
+            for destination in dst_map_ids
+            for map_id in DESTINATION_ACCESS_MAP_IDS.get(destination, ())
+        )
+        context = replace(
+            context,
+            transition=replace(context.transition, allowed_map_ids=context.transition.allowed_map_ids | access_map_ids),
+        )
         self.astar_world.set_context(context)
         return self.astar_world.find_path(start=src_vertex, ends=dst_vertexes)

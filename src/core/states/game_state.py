@@ -3,7 +3,7 @@ from typing import Any
 
 from DBDofusUnity.dofus_unity_reader.game_constants.characteristic import CharacteristicEnum
 from DBDofusUnity.dofus_unity_reader.grid.map_point import MapPoint
-from src.core.config import BehaviorSettings
+from src.core.config import BehaviorSettings, ConfigurableAutoSettings
 from src.core.engine.contexts import (
     AttackContext,
     CriterionContext,
@@ -39,12 +39,17 @@ class GameState:
     server: ServerState
     dialog: DialogState
     settings: BehaviorSettings = field(default_factory=BehaviorSettings)
+    configurable_auto: ConfigurableAutoSettings | None = None
+    haven_bag_zaap_costs: dict[int, int] = field(default_factory=dict[int, int])
+    haven_bag_zaap_origin_map_id: int | None = None
 
     def apply_settings(self, settings: BehaviorSettings) -> None:
         self.settings = settings
         self.guild_chest.settings = settings
 
     def clear_connection_scoped_state(self) -> None:
+        self.haven_bag_zaap_costs.clear()
+        self.haven_bag_zaap_origin_map_id = None
         self.map.clear_state()
         self.fight.clear_state()
         self.entity.clear_state()
@@ -113,9 +118,7 @@ class GameState:
     def get_world_transition_context(self) -> WorldTransitionContext:
         return WorldTransitionContext(
             criterion=self.get_criterion_context(),
-            forbidden_edge_transitions=frozenset(
-                ban.key for ban in self.map.banned_edge_transitions
-            ),
+            forbidden_edge_transitions=frozenset(ban.key for ban in self.map.banned_edge_transitions),
         )
 
     def get_world_path_context(self) -> WorldPathContext:
@@ -150,18 +153,14 @@ class GameState:
             actor_fight_by_id,
         )
         player_fight_actor = actor_fight_by_id.get(self.player.character_id)
-        own_state_ids = (
-            player_fight_actor.state_ids if player_fight_actor is not None else frozenset[int]()
-        )
+        own_state_ids = player_fight_actor.state_ids if player_fight_actor is not None else frozenset[int]()
         if (stance := self.fight.forgelance_stance) is not None:
             own_state_ids = own_state_ids | {stance}
         own_active_stack_count_by_spell_id = self.fight.get_own_active_stack_count_by_spell_id()
         own_active_summon_count = self.fight.count_own_active_summons(
             self.player.character_id, actor_by_id, actor_fight_by_id
         )
-        max_active_summon_count = self.fight.get_stat_by_id(
-            CharacteristicEnum.MAX_SUMMONED_CREATURES_BOOST
-        )
+        max_active_summon_count = self.fight.get_stat_by_id(CharacteristicEnum.MAX_SUMMONED_CREATURES_BOOST)
         return AttackContext(
             map_id=self.map.map_id,
             player_map_point=MapPoint.from_cell_id(player_actor.disposition.cell_id),

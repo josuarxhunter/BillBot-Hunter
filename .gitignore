@@ -91,3 +91,5 @@ DBDofusUnity/.cod*/
 DBDofusUnity/**/*.understand*
 !DBDofusUnity/datas/bundles/
 !DBDofusUnity/datas/bundles/**
+
+resources/startup-*.json

@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import StrEnum, auto
 from functools import partial
 
@@ -11,6 +11,7 @@ from DBDofusUnity.datas.protos.non_obf.game.haven_bag_pb2 import (
 from DBDofusUnity.datas.protos.non_obf.game.teleportation_pb2 import (
     Teleporter,
     TeleportRequest,
+    TeleportDestinationsEvent,
 )
 from DBDofusUnity.dofus_unity_reader.data_center.data_reader import DataReader
 from DBDofusUnity.dofus_unity_reader.data_center.world_graph_reader import WorldGraphReader
@@ -33,6 +34,7 @@ from src.services.human_timings import HumanTimingsService
 
 class WaypointErrorCode(StrEnum):
     UNREACHABLE_HAVRE_MAP = auto()
+    UNAFFORDABLE = auto()
 
 
 @dataclass
@@ -41,8 +43,18 @@ class WaypointBehavior(Behavior):
     astar_allow_havre_sac: AstarAllowHavreSac
     auto_trip_behavior: AutoTripBehavior
     pathfinding: Pathfinding
+    _quoted_cost: int | None = field(init=False, default=None)
+    _zaap_used: bool = field(init=False, default=False)
+    _quote_origin_map_id: int | None = field(init=False, default=None)
 
     def run(self, map_id: int, dst_map_ids: set[int]) -> None:
+        self._quoted_cost = None
+        self._zaap_used = False
+        self._quote_origin_map_id = (
+            self.game_state.haven_bag_zaap_origin_map_id
+            if self.game_state.map.is_in_haven_bag
+            else self.game_state.map.map_id
+        )
         if self.game_state.map.is_in_haven_bag:
             return self.go_and_use_waypoint(map_id)
         map_data = DataReader().map_info_by_map_id[self.game_state.map.map_id]
@@ -89,6 +101,15 @@ class WaypointBehavior(Behavior):
         self.go_and_use_waypoint(map_id)
 
     def go_and_use_waypoint(self, map_id: int):
+        if self.game_state.configurable_auto is not None:
+            self.event_manager.on(
+                TeleportDestinationsEvent,
+                partial(self.on_quoted_destinations, map_id=map_id),
+                originator=self,
+                once=True,
+                timeout=15,
+                on_timeout=lambda: self.finish(WaypointErrorCode.UNREACHABLE_HAVRE_MAP),
+            )
         zaap = next(
             (
                 element
@@ -126,7 +147,34 @@ class WaypointBehavior(Behavior):
 
     def on_zaap_used(self, error_code: str | None, map_id: int):
         self.raise_if_error(error_code)
+        if self.game_state.configurable_auto is not None:
+            self._zaap_used = True
+            return self._teleport_if_affordable(map_id)
+        self._send_teleport(map_id)
 
+    def on_quoted_destinations(self, msg: TeleportDestinationsEvent, map_id: int) -> None:
+        self.game_state.haven_bag_zaap_origin_map_id = self._quote_origin_map_id
+        self.game_state.haven_bag_zaap_costs = {
+            entry.map_id: entry.cost for entry in msg.destinations if entry.cost >= 0
+        }
+        destination = next((entry for entry in msg.destinations if entry.map_id == map_id), None)
+        if destination is None or destination.cost < 0:
+            return self.finish(WaypointErrorCode.UNREACHABLE_HAVRE_MAP)
+        self._quoted_cost = destination.cost
+        self._teleport_if_affordable(map_id)
+
+    def _teleport_if_affordable(self, map_id: int) -> None:
+        preferences = self.game_state.configurable_auto
+        if preferences is None or self._quoted_cost is None or not self._zaap_used:
+            return
+        if (
+            self._quoted_cost > preferences.maximum_zaap_cost
+            or self.game_state.inventory.kamas - self._quoted_cost < preferences.reserve_kamas
+        ):
+            return self.finish(WaypointErrorCode.UNAFFORDABLE)
+        self._send_teleport(map_id)
+
+    def _send_teleport(self, map_id: int) -> None:
         self.event_manager.on(
             MapComplementaryInformationEvent,
             callback=partial(self.on_map_complementary_information_event, map_id=map_id),

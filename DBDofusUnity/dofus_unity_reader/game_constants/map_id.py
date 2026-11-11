@@ -35,6 +35,11 @@ FORBIDDEN_MAP_IDS: set[int] = {
     73400323,
 }
 
+# Kerubim's shop is excluded from ordinary travel, but is the only way to Kankreblath.
+DESTINATION_ACCESS_MAP_IDS: dict[int, frozenset[int]] = {
+    146676736: frozenset({MapIdEnum.KERUBIM_SHOP_ENTRANCE}),
+}
+
 MAP_IDS_THAT_POP_DIALOG: set[int] = {241445377}
 
 

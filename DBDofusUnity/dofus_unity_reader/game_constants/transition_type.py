@@ -15,6 +15,7 @@ class TransitionTypeEnum(IntEnum):
 
 
 CRITERION_WHITE_LIST: list[str] = [
+    "PO",
     "Ad",
     "DM",
     "MI",

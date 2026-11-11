@@ -2,7 +2,7 @@ from abc import ABC
 from collections.abc import Callable
 from dataclasses import dataclass
 
-from context_pb2 import ContextCreationEvent
+from DBDofusUnity.datas.protos.non_obf.game.context_pb2 import ContextCreationEvent
 from DBDofusUnity.datas.protos.non_obf.game.gamemap_pb2 import MapComplementaryInformationEvent
 from DBDofusUnity.datas.protos.non_obf.game.haven_bag_pb2 import HavenBagEnterRequest
 from DBDofusUnity.dofus_unity_reader.game_constants.map_id import MapIdEnum
@@ -32,14 +32,17 @@ class RecoverableBehavior(Behavior, ABC):
         self,
         then: Callable[[], None],
         remaining_attempts: int = MAX_RECOVERY_ATTEMPTS,
+        *,
+        recover_dungeon: bool = True,
     ) -> None:
         if remaining_attempts <= 0:
-            self.logger.warning("Still blocked after recovery attempts, going on anyway")
-            return then()
+            self.logger.warning("Still blocked after recovery attempts")
+            return self.finish("The character is still blocked after recovery attempts.")
 
         def on_recovery_finished(error_code: str | None) -> None:
-            self.raise_if_error(error_code)
-            self.ensure_free_to_act(then, remaining_attempts - 1)
+            if error_code is not None:
+                return self.finish(error_code)
+            self.ensure_free_to_act(then, remaining_attempts - 1, recover_dungeon=recover_dungeon)
 
         if self.game_state.fight.in_fight:
             self.logger.info("A fight is running, playing it before going on")
@@ -47,14 +50,16 @@ class RecoverableBehavior(Behavior, ABC):
 
         if self.game_state.map.is_in_haven_bag:
             self.logger.info("Still in the haven bag, leaving it before going on")
-            return self.leave_haven_bag(lambda: self.ensure_free_to_act(then, remaining_attempts - 1))
+            return self.leave_haven_bag(
+                lambda: self.ensure_free_to_act(then, remaining_attempts - 1, recover_dungeon=recover_dungeon)
+            )
 
         if self.game_state.map.map_id == MapIdEnum.TUTORIAL_STARTING:
             self.logger.info("Still on the tutorial map, going through it before going on")
             return self.recovery.tutorial_behavior.start(callback=on_recovery_finished, parent=self)
 
         dungeon_info = get_dungeon_info_for_map_id(self.game_state.map.map_id)
-        if dungeon_info is not None:
+        if recover_dungeon and dungeon_info is not None:
             self.logger.info(f"Still inside {dungeon_info.name}, leaving it before going on")
             return self.recovery.dungeon_behavior.start(
                 dungeon_info=dungeon_info,
@@ -98,3 +103,23 @@ class RecoverableBehavior(Behavior, ABC):
 
     def resume_after_interruption(self) -> None:
         self.replay_run()
+
+
+@dataclass
+class ActionStartupBehavior(RecoverableBehavior):
+    def run(self, *, recover_dungeon: bool = True) -> None:
+        if self.game_state.map.is_in_map_transition:
+            return self.event_manager.on(
+                MapComplementaryInformationEvent,
+                lambda _: self.run(recover_dungeon=recover_dungeon),
+                originator=self,
+                once=True,
+                timeout=60,
+                on_timeout=lambda: self.finish("The character's map did not finish loading."),
+            )
+        self.ensure_dialog_closed(
+            lambda: self.ensure_free_to_act(
+                lambda: self.ensure_dialog_closed(self.finish),
+                recover_dungeon=recover_dungeon,
+            )
+        )

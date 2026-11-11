@@ -228,7 +228,7 @@ class SidebarItem(NavigationWidget):
 
     def on_click_play(self) -> None:
         self.bot_signals.play.emit(True)
-        self.bot_signals.play_auto_bot.emit()
+        self.bot_signals.play_configurable_auto.emit(None)
 
     def on_click_stop(self) -> None:
         self.bot_signals.stop.emit()

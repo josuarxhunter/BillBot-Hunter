@@ -23,17 +23,19 @@ def get_final_world_entry_map_positions(
     if not edge_path:
         return []
 
-    final_map_position = DataReader().map_info_by_map_id[edge_path[-1].m_to.m_mapId]
-    final_world_map_id = final_map_position.worldMap
-    for edge in reversed(edge_path):
-        source_map_position = DataReader().map_info_by_map_id[edge.m_from.m_mapId]
-        destination_map_position = DataReader().map_info_by_map_id[edge.m_to.m_mapId]
-        if (
-            destination_map_position.worldMap == final_world_map_id
-            and source_map_position.worldMap != final_world_map_id
-        ):
-            return [source_map_position]
-    return []
+    positions = [DataReader().map_info_by_map_id[edge_path[0].m_from.m_mapId]]
+    positions.extend(DataReader().map_info_by_map_id[edge.m_to.m_mapId] for edge in edge_path)
+    final_world_map_id = positions[-1].worldMap
+    previous_world_position: MapInformationRootItem | None = None
+    entry_position: MapInformationRootItem | None = None
+    for position in positions:
+        # Indoor maps use -1 for their world: leaving a building is not a world crossing.
+        if position.worldMap < 0:
+            continue
+        if previous_world_position is not None and previous_world_position.worldMap != position.worldMap:
+            entry_position = previous_world_position if position.worldMap == final_world_map_id else None
+        previous_world_position = position
+    return [entry_position] if entry_position is not None else []
 
 
 def get_near_waypoint(

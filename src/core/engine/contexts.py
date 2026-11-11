@@ -52,6 +52,7 @@ class CriterionContext:
 class WorldTransitionContext:
     criterion: CriterionContext
     forbidden_edge_transitions: frozenset[tuple[Vertice, Vertice, Transition]]
+    allowed_map_ids: frozenset[int] = frozenset()
 
 
 @dataclass(frozen=True)

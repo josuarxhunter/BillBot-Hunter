@@ -14,13 +14,12 @@ from src.core.behaviors.account.ogrine_subscription import OgrineSubscriptionBeh
 from src.core.behaviors.account.paysafecard_subscription import (
     PaysafecardSubscriptionBehavior,
 )
+from src.core.behaviors.recovery_behavior import ActionStartupBehavior
 from src.core.behaviors.behavior import Behavior
 from src.core.behaviors.craft.craft_behavior import CraftBehavior
-from src.core.behaviors.farms.auto_bot_behavior import AutoBotBehavior
 from src.core.behaviors.farms.configurable_auto_behavior import ConfigurableAutoBehavior
 from src.core.behaviors.farms.fight.fight_behavior import FightBehavior
 from src.core.behaviors.farms.fight.fighter_behavior import FighterBehavior
-from src.core.behaviors.farms.harvest.harvester_behavior import HarvesterBehavior
 from src.core.behaviors.quests.dungeon_behavior import DungeonBehavior
 from src.core.behaviors.quests.tutorial_behavior import TutorialBehavior
 from src.core.behaviors.socket.connection_behavior import ConnectionBehavior
@@ -69,13 +68,12 @@ class Bot(ContextualLogger):
 
     frames: list[Frame]
 
-    harvester_behavior: HarvesterBehavior
     fighter_behavior: FighterBehavior
     craft_behavior: CraftBehavior
     fight_behavior: FightBehavior
-    auto_bot_behavior: AutoBotBehavior
     configurable_auto_behavior: ConfigurableAutoBehavior
     dungeon_behavior: DungeonBehavior
+    action_startup_behavior: ActionStartupBehavior
     connection_behavior: ConnectionBehavior
     game_session_behavior: GameSessionBehavior
     handshake_behavior: HandshakeBehavior
@@ -121,11 +119,11 @@ class Bot(ContextualLogger):
             is_connected_event=self.is_connected_event,
             from_manual_play=self.from_manual_play,
             fight_behavior=self.fight_behavior,
-            harvester_behavior=self.harvester_behavior,
             fighter_behavior=self.fighter_behavior,
             craft_behavior=self.craft_behavior,
-            auto_bot_behavior=self.auto_bot_behavior,
             configurable_auto_behavior=self.configurable_auto_behavior,
+            dungeon_behavior=self.dungeon_behavior,
+            action_startup_behavior=self.action_startup_behavior,
             usable_behaviors=self.usable_behaviors,
             bot_signals=self.bot_signals,
         )
@@ -168,8 +166,8 @@ class Bot(ContextualLogger):
             msg_info_signals=self.msg_info_signals,
             process_manager=self.process_manager,
             event_manager=self.event_manager,
-            on_session_started=self.auto_bot_behavior.start_planned_session,
-            on_session_finished=self.auto_bot_behavior.clear_planned_session,
+            on_session_started=self.configurable_auto_behavior.start_planned_session,
+            on_session_finished=self.configurable_auto_behavior.clear_planned_session,
         )
 
         self.game_info_signals.connected.connect(self.connection_handler.on_connected)
@@ -180,11 +178,10 @@ class Bot(ContextualLogger):
         self.bot_signals.stop.connect(self._apply_pending_schedule)
         self.bot_signals.disconnect_runtime.connect(self.scheduler.disconnect_now)
         self.game_info_signals.is_ready_to_play.connect(self.connection_handler.on_ready_to_play)
-        self.bot_signals.play_harvester.connect(self.behavior_coordinator.on_play_harvester)
         self.bot_signals.play_fighter.connect(self.behavior_coordinator.on_play_fighter)
         self.bot_signals.play_crafter.connect(self.behavior_coordinator.on_play_crafter)
-        self.bot_signals.play_auto_bot.connect(self.behavior_coordinator.on_play_auto_bot)
         self.bot_signals.play_configurable_auto.connect(self.behavior_coordinator.on_play_configurable_auto)
+        self.bot_signals.play_dungeons.connect(self.behavior_coordinator.on_play_dungeons)
         self.bot_signals.play_usable_behavior.connect(self.behavior_coordinator.on_play_usable_behavior)
 
     def start(self):

@@ -20,7 +20,6 @@ from src.core.behaviors.account.paysafecard_subscription import (
     PaysafecardSubscriptionBehavior,
 )
 from src.core.behaviors.craft.craft_behavior import CraftBehavior
-from src.core.behaviors.farms.auto_bot_behavior import AutoBotBehavior
 from src.core.behaviors.farms.configurable_auto_behavior import (
     ConfigurableAutoBehavior,
     ConfigurableFarmingBehavior,
@@ -34,8 +33,6 @@ from src.core.behaviors.farms.fight.fight_preparation_behavior import (
 from src.core.behaviors.farms.fight.fight_spell_behavior import FightSpellBehavior
 from src.core.behaviors.farms.fight.fight_turn_behavior import FightTurnBehavior
 from src.core.behaviors.farms.fight.fighter_behavior import FighterBehavior
-from src.core.behaviors.farms.harvest.harvester_behavior import HarvesterBehavior
-from src.core.behaviors.farms.harvest.multi_farming_behavior import MultiFarmingBehavior
 from src.core.behaviors.farms.random_farm_behavior import RandomFarmBehavior
 from src.core.behaviors.idle_behavior import IdleBehavior
 from src.core.behaviors.interactives.collect_behavior import CollectBehavior
@@ -68,8 +65,9 @@ from src.core.behaviors.movements.map_movement_cancel_behavior import MapMovemen
 from src.core.behaviors.movements.waypoint_behavior import WaypointBehavior
 from src.core.behaviors.npcs.npc_dialog_behavior import NpcDialogBehavior
 from src.core.behaviors.quests.dungeon_behavior import DungeonBehavior
+from src.core.behaviors.quests.dungeon_traversal_behavior import DungeonTraversalBehavior
 from src.core.behaviors.quests.tutorial_behavior import TutorialBehavior
-from src.core.behaviors.recovery_behavior import BlockingStateRecovery
+from src.core.behaviors.recovery_behavior import ActionStartupBehavior, BlockingStateRecovery
 from src.core.behaviors.sale_hotel.enter_sale_hotel_behavior import (
     EnterSaleHotelBehavior,
 )
@@ -154,7 +152,7 @@ from src.services.logging_utils.loggers import BotLogger
 class BotFactory:
     @staticmethod
     def create_bot(shared_signals: SharedSignals, account: StoredApiKey, is_fake: bool = False):
-        harvester_signals = BotSignals()
+        bot_signals = BotSignals()
         game_info_signals = GameInfoSignals()
         msg_info_signals = MessageInfoSignals()
         grid_signals = GridSignals()
@@ -382,7 +380,7 @@ class BotFactory:
             path_finding=path_finding,
             _logger=logger,
             fight_turn_behavior=fight_turn_behavior,
-            pause_automation=harvester_signals.stop.emit,
+            pause_automation=bot_signals.stop.emit,
             login=account.apikey.login,
             shared_signals=shared_signals,
             auto_equipment_from_inventory_behavior=auto_equipment_from_inventory_behavior,
@@ -447,16 +445,21 @@ class BotFactory:
             path_finding=path_finding,
             game_state=game_state,
             _logger=logger,
-            bot_signals=harvester_signals,
+            bot_signals=bot_signals,
             game_info_signals=game_info_signals,
         )
         dungeon_behavior = DungeonBehavior(
+            account_id=account.apikey.accountId,
             event_manager=event_manager,
             game_state=game_state,
             _logger=logger,
             npc_dialog_behavior=npc_dialog_behavior,
             attacker_behavior=attacker_behavior,
             auto_trip_smart_behavior=auto_trip_world_behavior,
+            traversal_behavior=DungeonTraversalBehavior(
+                event_manager=event_manager, game_state=game_state, _logger=logger,
+                edge_behavior=edge_behavior, map_move_behavior=map_move_behavior, path_finding=path_finding,
+            ),
         )
         tutorial_behavior = TutorialBehavior(
             _logger=logger, event_manager=event_manager, game_state=game_state
@@ -596,7 +599,7 @@ class BotFactory:
             weighted_path=weighted_path,
             world_signals=world_signals,
             edge_behavior=edge_behavior,
-            report_status=harvester_signals.automation_status_changed.emit,
+            report_status=bot_signals.automation_status_changed.emit,
             _logger=logger,
         )
         mule_give_behavior = MuleGiveBehavior(
@@ -631,18 +634,6 @@ class BotFactory:
             interactive_behavior=interactive_behavior,
             auto_trip_smart_behavior=auto_trip_world_behavior,
             pathfinding=path_finding,
-        )
-        harvester = HarvesterBehavior(
-            recovery=blocking_state_recovery,
-            auto_equipment_behavior=auto_equipment_behavior,
-            event_manager=event_manager,
-            collect_behavior=collect_behavior,
-            game_state=game_state,
-            unload_behavior=unload_behavior,
-            random_farm_behavior=random_farm_behavior,
-            fight_behavior=fight_behavior,
-            report_status=harvester_signals.automation_status_changed.emit,
-            _logger=logger,
         )
         fighter_behavior = FighterBehavior(
             recovery=blocking_state_recovery,
@@ -686,35 +677,6 @@ class BotFactory:
             game_state=game_state,
             character_creation_behavior=character_creation_behavior,
         )
-        multi_farming_behavior = MultiFarmingBehavior(
-            recovery=blocking_state_recovery,
-            event_manager=event_manager,
-            collect_behavior=collect_behavior,
-            game_state=game_state,
-            unload_behavior=unload_behavior,
-            random_farm_behavior=random_farm_behavior,
-            fight_behavior=fight_behavior,
-            report_status=harvester_signals.automation_status_changed.emit,
-            _logger=logger,
-            attacker_behavior=attacker_behavior,
-            auto_equipment_behavior=auto_equipment_behavior,
-        )
-        auto_bot_behavior = AutoBotBehavior(
-            recovery=blocking_state_recovery,
-            event_manager=event_manager,
-            game_state=game_state,
-            _logger=logger,
-            auto_equipment_behavior=auto_equipment_behavior,
-            fighter_behavior=fighter_behavior,
-            harvester_behavior=harvester,
-            multi_farming_behavior=multi_farming_behavior,
-            dungeon_behavior=dungeon_behavior,
-            idle_behavior=idle_behavior,
-            craft_behavior=craft_behavior,
-            sale_hotel_sell_behavior=sale_hotel_prices_behavior,
-            report_status=harvester_signals.automation_status_changed.emit,
-        )
-
         configurable_route = replace(random_farm_behavior, reconnect_on_blocked_route=False)
         configurable_auto_behavior = ConfigurableAutoBehavior(
             recovery=blocking_state_recovery,
@@ -723,7 +685,6 @@ class BotFactory:
             _logger=logger,
             auto_equipment_behavior=auto_equipment_behavior,
             fighter_behavior=replace(fighter_behavior, random_farm_behavior=configurable_route),
-            harvester_behavior=harvester,
             multi_farming_behavior=ConfigurableFarmingBehavior(
                 recovery=blocking_state_recovery,
                 event_manager=event_manager,
@@ -733,7 +694,7 @@ class BotFactory:
                 unload_behavior=unload_behavior,
                 random_farm_behavior=configurable_route,
                 fight_behavior=fight_behavior,
-                report_status=harvester_signals.automation_status_changed.emit,
+                report_status=bot_signals.automation_status_changed.emit,
                 attacker_behavior=attacker_behavior,
                 auto_equipment_behavior=auto_equipment_behavior,
             ),
@@ -741,8 +702,7 @@ class BotFactory:
             idle_behavior=idle_behavior,
             craft_behavior=craft_behavior,
             sale_hotel_sell_behavior=sale_hotel_prices_behavior,
-            report_status=harvester_signals.automation_status_changed.emit,
-            bot_signals=harvester_signals,
+            bot_signals=bot_signals,
         )
 
         fake_bad_interactive_behavior = FakeBadInteractiveBehavior(
@@ -772,7 +732,6 @@ class BotFactory:
             usable_behaviors=[
                 mule_accept_kamas_behavior,
                 mule_give_behavior,
-                dungeon_behavior,
                 sale_hotel_prices_behavior,
                 auto_equipment_behavior,
                 fake_bad_movement_behavior,
@@ -783,16 +742,19 @@ class BotFactory:
             account=account,
             grid_signals=grid_signals,
             game_info_signals=game_info_signals,
-            bot_signals=harvester_signals,
+            bot_signals=bot_signals,
             msg_info_signals=msg_info_signals,
             inventory_signals=inventory_signals,
             event_manager=event_manager,
-            harvester_behavior=harvester,
             fight_behavior=fight_behavior,
             connection_behavior=connection_behavior,
             game_session_behavior=game_session_behavior,
             handshake_behavior=handshake_behavior,
             dungeon_behavior=dungeon_behavior,
+            action_startup_behavior=ActionStartupBehavior(
+                event_manager=event_manager, game_state=game_state, _logger=logger,
+                recovery=blocking_state_recovery,
+            ),
             hearthbeat_behavior=hearthbeat_behavior,
             frames=[
                 map_frame,
@@ -815,7 +777,6 @@ class BotFactory:
             game_state=game_state,
             fighter_behavior=fighter_behavior,
             craft_behavior=craft_behavior,
-            auto_bot_behavior=auto_bot_behavior,
             configurable_auto_behavior=configurable_auto_behavior,
             is_playing_event=is_playing_event,
             shared_signals=shared_signals,

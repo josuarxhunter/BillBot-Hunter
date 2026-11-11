@@ -15,7 +15,7 @@ from DBDofusUnity.dofus_unity_reader.game_constants.map_id import (
 )
 
 from src.controller.game_data import GameDataController
-from src.core.config import WEIGHT_BY_JOB
+from src.core.config import WEIGHT_BY_JOB, ConfigurableAutoSettings, HarvestGoal
 from src.core.engine.monsters.drops import get_rare_gid_with_weight_from_protector_drop
 from src.core.engine.movements.map.map_tools import MapTools
 
@@ -42,12 +42,16 @@ def get_map_id_collectable_weight(
     storage_by_gid: dict[int, ObjectItemInventory],
     is_sub: bool,
     server_id: int = 1,
+    preferences: ConfigurableAutoSettings | None = None,
 ) -> float:
     item_job_by_gfx = GameDataController().get_item_job_by_gfx()
     weight_map: float = 0
     for ref_id in MapReader().map_by_id(map_id).references:
         if ref_id.position is not None:
-            if abs(ref_id.position.x) > MAP_PIXEL_HALF_WIDTH or abs(ref_id.position.y) > MAP_PIXEL_HALF_HEIGHT:
+            if (
+                abs(ref_id.position.x) > MAP_PIXEL_HALF_WIDTH
+                or abs(ref_id.position.y) > MAP_PIXEL_HALF_HEIGHT
+            ):
                 continue
         elif ref_id.transform is not None:
             if MapTools.is_transform_outside_map(ref_id.transform):
@@ -64,7 +68,9 @@ def get_map_id_collectable_weight(
         job_lvl = player_job_lvl_by_id.get(job_id, 1)
         if item.level is None or item.level > job_lvl:
             continue
-        weight_item = get_weight_collectable(job_id, job_lvl, item_id, storage_by_gid, is_sub, server_id)
+        weight_item = get_weight_collectable(
+            job_id, job_lvl, item_id, storage_by_gid, is_sub, server_id, preferences
+        )
         weight_map += weight_item
     return weight_map
 
@@ -76,7 +82,12 @@ def get_weight_collectable(
     storage_by_gid: dict[int, ObjectItemInventory],
     is_sub: bool,
     server_id: int = 1,
+    preferences: ConfigurableAutoSettings | None = None,
 ):
+    if preferences is not None:
+        return get_configurable_resource_weight(
+            job_id, job_lvl, item_gid, storage_by_gid, is_sub, server_id, preferences
+        )
     avg_price_by_gid = GameDataController().get_avg_price_by_gid(server_id)
     rare_drop_weight_by_collectable_gid = get_rare_drop_weight_by_collectable_gid()
 
@@ -92,6 +103,55 @@ def get_weight_collectable(
     weight = base * scaled_price
     storage_qty = related_object.item.quantity if (related_object := storage_by_gid.get(item_gid)) else 0
     return weight / (1 + log1p(storage_qty))
+
+
+@cache
+def get_harvest_requirements() -> dict[int, tuple[int, int]]:
+    return {
+        skill.gatheredRessourceItem: (skill.parentJobId, skill.levelMin)
+        for skill in DataReader().skill_by_id.values()
+        if skill.gatheredRessourceItem > 0 and skill.parentJobId in WEIGHT_BY_JOB
+    }
+
+
+def get_configurable_resource_weight(
+    job_id: int,
+    job_lvl: int,
+    item_gid: int,
+    storage_by_gid: dict[int, ObjectItemInventory],
+    is_sub: bool,
+    server_id: int,
+    preferences: ConfigurableAutoSettings,
+) -> float:
+    requirement = get_harvest_requirements().get(item_gid)
+    if requirement is None or requirement[0] != job_id or requirement[1] > job_lvl:
+        return 0
+    if preferences.goal is HarvestGoal.TARGETS and item_gid not in preferences.target_resource_ids:
+        return 0
+    stored = storage_by_gid.get(item_gid)
+    quantity = stored.item.quantity if stored else 0
+    if preferences.goal is HarvestGoal.TARGETS and preferences.target_quantity:
+        if quantity >= preferences.target_quantity:
+            return 0
+    controller = GameDataController()
+    price = controller.get_avg_price_by_gid(server_id).get(item_gid)
+    # Unknown prices have little influence until a price observation is available.
+    economic = max(0.0, price) if price is not None else 1.0
+    economic *= controller.get_price_confidence(server_id, item_gid, preferences.price_half_life_hours)
+    progression = float(requirement[1]) if job_lvl < (200 if is_sub else 60) else 0.0
+    if preferences.goal is HarvestGoal.EXPERIENCE:
+        value = progression
+    elif preferences.goal is HarvestGoal.TARGETS:
+        value = (
+            (preferences.target_quantity - quantity) / preferences.target_quantity
+            if preferences.target_quantity
+            else 1.0
+        )
+    elif preferences.goal is HarvestGoal.PROFIT:
+        value = economic
+    else:
+        value = (1 + log1p(economic)) * (1 + log1p(progression))
+    return WEIGHT_BY_JOB[JobEnum(job_id)] * value / (1 + log1p(quantity))
 
 
 @cache

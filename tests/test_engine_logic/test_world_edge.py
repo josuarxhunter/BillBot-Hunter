@@ -134,3 +134,37 @@ def test_haven_bag_search_stops_at_a_teleportable_map(
     path = search.find_path(vertices[0], {vertices[2]})
 
     assert path == edges[:1]
+
+
+@pytest.mark.parametrize("condition,expected", [
+    ("#(PC=307|PC=335|PC=415|PC=293|PC=349)", False),
+    ("(PL>10|PL=10)&PL<300", True),
+    ("PL<10&PL>20", False),
+])
+def test_unsupported_group_operator_rejects_the_passage_without_aborting(
+    condition: str, expected: bool
+) -> None:
+    from src.core.engine.movements.world.criterions.group_item_criterion import GroupItemCriterion
+    assert GroupItemCriterion(condition).is_respected(_context().criterion) is expected
+
+
+@pytest.mark.parametrize("world_ids,entry_index", [
+    ([-1, -1, 1, 1], None),
+    ([1, -1, 1, 1], None),
+    ([1, -1, 2, 2], 0),
+    ([1, 2, 1, 2], 2),
+])
+def test_world_entry_ignores_interiors_and_preserves_actual_world_crossings(
+    monkeypatch: pytest.MonkeyPatch, world_ids: list[int], entry_index: int | None
+) -> None:
+    from types import SimpleNamespace
+    from src.core.engine.movements.world import waypoint
+    positions = {
+        index: MapInformationRootItem(m_flags=0, id=index, posX=index, posY=0, worldMap=world_id, subAreaId=0, nameId=0, tacticalModeTemplateId=0)
+        for index, world_id in enumerate(world_ids)
+    }
+    monkeypatch.setattr(waypoint, "DataReader", lambda: SimpleNamespace(map_info_by_map_id=positions))
+    vertices = [Vertice(index, 1, index) for index in positions]
+    edges = [Edge(source, destination, []) for source, destination in zip(vertices[:-1], vertices[1:], strict=True)]
+    expected = [] if entry_index is None else [positions[entry_index]]
+    assert waypoint.get_final_world_entry_map_positions(edges) == expected

@@ -20,9 +20,10 @@ class SignalEmitter:
 
 @dataclass
 class BotSignalsFake:
+    dungeon_status_changed: SignalEmitter = field(default_factory=SignalEmitter)
     stop: SignalEmitter = field(default_factory=SignalEmitter)
     play: SignalEmitter = field(default_factory=SignalEmitter)
-    play_auto_bot: SignalEmitter = field(default_factory=SignalEmitter)
+    play_configurable_auto: SignalEmitter = field(default_factory=SignalEmitter)
     automation_status_changed: SignalEmitter = field(default_factory=SignalEmitter)
 
 
@@ -65,11 +66,11 @@ def make_behavior_coordinator() -> BehaviorCoordinator:
         from_manual_play=Event(),
         event_manager=EventManagerLockFake(),  # type: ignore
         fight_behavior=Mock(),
-        harvester_behavior=Mock(),
         fighter_behavior=Mock(),
         craft_behavior=Mock(),
-        auto_bot_behavior=Mock(),
         configurable_auto_behavior=Mock(),
+        dungeon_behavior=Mock(),
+        action_startup_behavior=Mock(),
         usable_behaviors=[],
         bot_signals=BotSignalsFake(stop=SignalEmitter()),  # type: ignore
         shared_signals=SharedSignalsFake(),  # type: ignore

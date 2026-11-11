@@ -1,6 +1,7 @@
 from DBDofusUnity.datas.protos.non_obf.game.common_pb2 import ObjectItemInventory
 
 from src.consts import FAKE_INFINITY_VALUE
+from src.core.config import ConfigurableAutoSettings
 from src.core.engine.weights.harvester.weight_collectable import (
     get_map_id_collectable_weight,
 )
@@ -13,6 +14,7 @@ def get_harvester_additional_weight_by_map_id(
     storage_by_gid: dict[int, ObjectItemInventory],
     is_sub: bool,
     server_id: int,
+    preferences: ConfigurableAutoSettings | None = None,
 ):
     if map_id in map_ids_to_explore:
         return FAKE_INFINITY_VALUE
@@ -22,5 +24,6 @@ def get_harvester_additional_weight_by_map_id(
         storage_by_gid,
         is_sub,
         server_id,
+        preferences,
     )
     return weight

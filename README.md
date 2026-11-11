@@ -61,6 +61,35 @@ Start an activity from the account controls and use **Activity** to review error
 Behavior changes apply on the next bot start; account automation settings apply
 at the next operation.
 
+For **Configurable automatic**, open the account's **Parameters** tab (also
+available without debug mode). Preferences are saved separately for each account
+and apply on the next start. Choose balanced harvesting, kamas, profession
+progression, or selected resources. A resource quantity of zero means unlimited;
+other targets include the last known bank stock and current inventory.
+
+For **Dungeons**, the **Parameters** tab lets you select a supported dungeon or
+enable an ordered sequence. Add dungeons to the list and move them up or down;
+the sequence runs once and stops on an error or if neither a key nor keyring access
+is available. The bot prefers the keyring and otherwise consumes a matching key
+from the inventory. Preferences are saved per account and also apply to dungeon
+activities in scheduled automatic sessions. The selector covers all 17 dungeons
+with recommended levels 1–50 in the extracted catalog; 16 have execution profiles.
+Larvae remains visible but blocked until coordinated multi-character mechanisms
+are implemented. Special access requirements appear in the panel. See
+[dungeon coverage and access requirements](docs/dungeons.md) before starting.
+
+The tab groups zone rotation and productivity limits, transport budgets, combat,
+and resource targets. Zone selection filters harvesting requirements, compares
+accessible routes and estimated travel costs, and keeps productive zones unless
+the improvement justifies moving. Zaap prices are checked against the live quote
+before spending the protected reserve. Failed zones can become eligible again
+after a cooldown. Recovery combat is optional and limited in time.
+
+Travel times, resource values and profession progression scores are estimates,
+not measured kamas/hour or exact profession XP. Missing or old prices receive
+less confidence. The activity panel explains the selected zone, priority
+resources and travel budget, and reports recent harvesting productivity.
+
 ## Development
 
 - `src/`: bot and interface.

@@ -1,4 +1,5 @@
 from src.core.engine.contexts import CriterionContext
+from DBDofusUnity.dofus_unity_reader.game_constants.inventory_position import CharacterInventoryPositionEnum
 from src.core.engine.movements.world.criterions.item_criterion import (
     ItemCriterion,
 )
@@ -19,11 +20,15 @@ class ObjectItemCriterion(ItemCriterion):
     def is_respected(self, context: CriterionContext) -> bool:
         item_quantity: int = 0
         for _object in context.inventory_objects_by_uid.values():
-            if _object.item.gid == self.criterion_value:
-                item_quantity = _object.item.quantity
-                break
+            if _object.item.gid != self.criterion_value:
+                continue
+            if self.item_operator.text == "E" and (
+                _object.position == CharacterInventoryPositionEnum.InventoryPositionNotEquiped
+            ):
+                continue
+            item_quantity += _object.item.quantity
 
-        if self.item_operator.text == ItemCriterionOperator.EQUAL:
+        if self.item_operator.text in {ItemCriterionOperator.EQUAL, "E"}:
             if self._criterion_value_quantity == -1:
                 return item_quantity > 0
             return item_quantity == self._criterion_value_quantity

@@ -1,3 +1,4 @@
+from src.protocol import initialize_protocol
 from functools import partial
 from pathlib import Path
 from typing import Any, cast
@@ -86,6 +87,7 @@ def _find_obf_game_message_descriptor(name: str | None) -> Descriptor | None:
     if name is None:
         return None
     try:
+        initialize_protocol()
         return POOL.FindMessageTypeByName(name)
     except KeyError:
         return None
