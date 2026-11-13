@@ -27,6 +27,12 @@ class AutoTripExploratorBehavior(Behavior):
 
         ends_pos = [DataReader().map_info_by_map_id[map_id] for map_id in map_ids]
         dist_player_to_ends = get_dist_to_maps(self.game_state.map.map_pos, ends_pos)
+        travel = self.auto_trip_zaap_behavior.auto_trip_behavior
+        walk = travel.world_path_finder.find_path(
+            self.game_state.get_world_path_context(), self.game_state.map.curr_vertex, map_ids,
+        )
+        if walk is not None:
+            dist_player_to_ends = min(dist_player_to_ends, len(walk))
 
         near_waypoint = get_near_waypoint(
             available_waypoint_map_ids=self.game_state.player.waypoint_map_ids,

@@ -86,3 +86,18 @@ def test_larvae_is_visible_but_does_not_grant_automatic_access() -> None:
     assert LARVA_DUNGEON not in PLAYABLE_DUNGEONS
     assert LARVA_DUNGEON.blocked_reason is not None
     assert get_dungeon_access(LARVA_DUNGEON, {}, logging.getLogger()) is None
+
+
+@pytest.mark.parametrize("info", [info for info in PLAYABLE_DUNGEONS if info.access_npc_info is not None])
+def test_island_transport_uses_real_npc_replies_and_a_mainland_map(info: DungeonInfo) -> None:
+    reader = DataReader()
+    assert info.access_npc_info is not None and info.access_npc_info.npc_name is not None
+    assert reader.map_info_by_map_id[info.access_npc_info.npc_map_id].worldMap == 1
+    replies = {
+        reply.values[0]
+        for npc_id in reader.npc_ids_by_name[info.access_npc_info.npc_name]
+        for reply in reader.npc_by_id[npc_id].dialogReplies
+    }
+    for turn in info.access_turns:
+        assert isinstance(turn.reply, ByText)
+        assert any(matches(turn.reply.pattern, get_reply_text(reply)) for reply in replies), turn.reply.pattern

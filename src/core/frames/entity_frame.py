@@ -160,7 +160,12 @@ class EntityFrame(Frame):
             self.game_state.entity.set_actor(actor)
 
     def on_map_obstacle_update_event(self, msg: MapObstacleUpdateEvent):
-        self.game_state.entity.set_map_obstacles(msg.obstacles)
+        # Updates are deltas; a second tomb animation must not erase newly opened cells.
+        obstacles = {
+            **self.game_state.entity.obstacle_on_cell_id,
+            **{obstacle.cell_id: obstacle for obstacle in msg.obstacles},
+        }
+        self.game_state.entity.set_map_obstacles(obstacles.values())
 
     def on_game_action_fight_event(self, msg: GameActionFightEvent):
         if msg.HasField("death"):

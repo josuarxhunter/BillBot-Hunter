@@ -1,4 +1,10 @@
 SPANISH = {
+    "Opens the cemetery tomb by stepping on cell 99, then walks into the crypt.": "Abre la tumba del cementerio pisando la casilla 99 y después baja a la cripta.",
+    "The dungeon transport is unavailable. Check island opening, access quests and travel fare.": "El transporte a la mazmorra no está disponible. Revisa la apertura de la isla, las misiones de acceso y el coste del viaje.",
+    "Requires completed Otomai access quests. Uses a known route or waypoint, otherwise Captain Kradoc's boat.": "Requiere completar las misiones de acceso a Otomai. Usa una ruta o zaap conocido; en su defecto, el barco del Capitán Guarrok.",
+    "Requires Kwismas Island to be open. Uses Hector Kwismas's boat when no direct route is available.": "Requiere que la isla de Nawidad esté abierta. Usa el barco de Héctor Nawidad si no hay una ruta directa.",
+    "Uses a known Valonia waypoint or Captain Isabello Tissier's boat for 100 kamas.": "Usa un zaap conocido de Valonia o el barco de la Capitana Isabello Tissier por 100 kamas.",
+    "DUNGEON_WAYPOINT_DETOUR_REFUSED": "La ruta calculada se desvía del tramo seguro de la mazmorra. Se detuvo el desplazamiento para evitar una caída.",
     "Requires access to Valonia and a known local waypoint. The boat journey is not automated.": "Requiere acceso a Valonia y un zaap local conocido. El viaje en barco no está automatizado.",
     "Dungeon sequence completed.": "Recorrido de mazmorras completado.",
     "The dungeon entrance is unreachable. Check its access requirements or start beside the entrance NPC.": "No hay una ruta disponible hasta la entrada de la mazmorra. Revisa sus requisitos de acceso o inicia junto al PNJ de entrada.",

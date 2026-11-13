@@ -108845,49 +108845,45 @@
     "obf_msg_namespace": "iqn",
     "full_non_obf_msg_namespace": ".com.ankama.dofus.server.game.protocol.inventory.ObjectMovementEvent",
     "field_mapping": {
-      "fsmv": "position",
-      "fsmw": "object_uid"
+      "fsmv": "object_uid",
+      "fsmx": "position"
     },
     "field_mapping_infos": {
       "fsmv": {
-        "position": 0.6576278659611993
+        "object_uid": 1.0
       },
-      "fsmw": {
-        "object_uid": 0.65
+      "fsmx": {
+        "position": 1.0
       }
     },
     "field_mapping_rejected_infos": {
-      "fsmv": {
+      "fsmw": {
         "object_uid": {
-          "reason": "not_selected",
-          "score": 0.28619528619528617
+          "reason": "pinned_field_exclusion"
+        },
+        "position": {
+          "reason": "pinned_field_exclusion"
         }
       },
       "fsmx": {
         "object_uid": {
-          "reason": "not_selected",
-          "score": 0.3333333333333333
-        },
-        "position": {
-          "reason": "not_selected",
-          "score": 0.5590127465127465
+          "reason": "pinned_field_exclusion"
         }
       },
-      "fsmw": {
+      "fsmv": {
         "position": {
-          "reason": "not_selected",
-          "score": 0.65
+          "reason": "pinned_field_exclusion"
         }
       }
     },
     "field_mapping_unmapped_non_obf_fields": {},
-    "similarity_score": 0.8025900651860617,
-    "group_similarity_score": 0.735991480812885,
+    "similarity_score": 1.0,
+    "group_similarity_score": 0.7413535610230555,
     "assembly_similarity_score": 0.45092298647854206,
     "structure_similarity_score": 1.0,
     "runtime_confidence": null,
-    "match_margin": 0.4599024576400138,
-    "runner_up_obf": "isz",
+    "match_margin": 1.0,
+    "runner_up_obf": null,
     "is_low_confidence": false,
     "evidence_coverage": 0.6666666666666666,
     "is_runtime_observed": false

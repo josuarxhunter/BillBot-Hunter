@@ -7836,8 +7836,8 @@
   ".com.ankama.dofus.server.game.protocol.inventory.ObjectMovementEvent": {
     "obf_msg_namespace": "iqn",
     "field_mapping": {
-      "fsmv": "position",
-      "fsmw": "object_uid"
+      "fsmv": "object_uid",
+      "fsmx": "position"
     }
   },
   ".com.ankama.dofus.server.game.protocol.inventory.ObjectPriceHistoryEvent": {

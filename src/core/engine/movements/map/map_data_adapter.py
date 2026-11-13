@@ -6,6 +6,7 @@ from DBDofusUnity.dofus_unity_reader.game_constants.directions import Directions
 from DBDofusUnity.dofus_unity_reader.grid.map_point import MapPoint
 
 from src.core.engine.contexts import MapMovementContext
+from src.core.engine.dungeons.dungeon_info import get_dungeon_info_for_map_id
 
 TOLERANCE_ELEVATION: int = 11
 BLOCKED_CELL_SPEED: int = -100
@@ -56,8 +57,15 @@ class DataMapProvider:
         avoid_obstacle: bool = True,
     ):
         context = self._get_context()
+        if not context.in_fight:
+            dungeon = get_dungeon_info_for_map_id(context.map_id)
+            if dungeon is not None and map_point.cell_id in dungeon.room_avoid_cells.get(context.map_id, ()):
+                return False
         cell_data = self.get_cell_data(map_point.cell_id)
         movable = cell_data.movDuringFight if context.in_fight else cell_data.movDuringRP
+        related_obstacle = context.obstacle_on_cell_id.get(map_point.cell_id)
+        if not context.in_fight and related_obstacle is not None and related_obstacle.state == MapObstacle.OBSTACLE_OPENED:
+            movable = True
         if not movable:
             return False
 
@@ -66,7 +74,6 @@ class DataMapProvider:
                 return False
 
         if avoid_obstacle:
-            related_obstacle = context.obstacle_on_cell_id.get(map_point.cell_id)
             if related_obstacle and not related_obstacle.state == MapObstacle.OBSTACLE_OPENED:
                 return False
 

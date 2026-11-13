@@ -83,6 +83,9 @@ class AutoTripZaapBehavior(Behavior):
         world_entry_map_positions = get_final_world_entry_map_positions(world_path)
         waypoint_target_positions = world_entry_map_positions or destination_map_positions
         dist_player_to_ends = get_dist_to_maps(self.game_state.map.map_pos, waypoint_target_positions)
+        if world_path is not None:
+            # Indoor entrances can share coordinates across subareas, inflating the heuristic.
+            dist_player_to_ends = min(dist_player_to_ends, len(world_path))
 
         self.logger.info(
             "Get near waypoint with dist player to target : "

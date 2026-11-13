@@ -6,7 +6,7 @@ import pytest
 from pydantic import ValidationError
 
 from DBDofusUnity.datas.protos.non_obf.game.gamemap_pb2 import MapComplementaryInformationEvent
-from DBDofusUnity.datas.protos.non_obf.game.common_pb2 import ObjectEffect, ObjectItem, ObjectItemInventory
+from DBDofusUnity.datas.protos.non_obf.game.common_pb2 import ActorPositionInformation, ObjectEffect, ObjectItem, ObjectItemInventory
 from DBDofusUnity.datas.protos.non_obf.game.npc_pb2 import NpcDialogQuestionEvent
 from DBDofusUnity.dofus_unity_reader.game_constants.item import ItemEnum
 from src.controller.settings import SettingsService
@@ -26,10 +26,106 @@ from src.core.engine.dungeons.dungeon_info import (
     BLACKSMITH_DUNGEON,
     LARVA_DUNGEON,
     SCARAFLEAF_DUNGEON,
+    SKELETON_DUNGEON,
     TOFU_DUNGEON,
 )
 
 OUTSIDE_MAP_ID = 88090898
+
+
+def test_skeleton_exit_replays_the_recorded_dialog_and_finishes_outside(
+    runtime_bot: Bot, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    behavior = runtime_bot.dungeon_behavior
+    state = runtime_bot.game_state
+    state.map.map_id = 87034370
+    dialog, finished = Mock(), Mock()
+    monkeypatch.setattr(behavior.npc_dialog_behavior, "start", dialog)
+    try:
+        behavior.start(callback=finished, parent=None, dungeon_info=SKELETON_DUNGEON)
+        variants = DialogVariants.from_turn_variants(dialog.call_args.kwargs["turn_variants"])
+        for question_id, replies, expected in (
+            (49101, (65566, 65571), 65566),
+            (49102, (65568,), 65568),
+            (49104, (65570, 65569), 65570),
+        ):
+            question = NpcDialogQuestionEvent(message_id=question_id)
+            for reply_id in replies:
+                question.visible_replies.add().reply_id = reply_id
+            selected = variants.take_reply_for(question)
+            assert selected is not None and selected.reply_id == expected
+        dialog.call_args.kwargs["callback"](None)
+        finished.assert_not_called()
+        state.map.map_id = 82314753
+        behavior.event_manager.process_msg(MapComplementaryInformationEvent(map_id=82314753))
+        finished.assert_called_once_with(None)
+    finally:
+        behavior.stop()
+
+
+@pytest.mark.parametrize("resume", [False, True])
+@pytest.mark.parametrize("map_first", [False, True])
+def test_blacksmith_final_room_fights_before_opening_the_exit_dialog(
+    runtime_bot: Bot, monkeypatch: pytest.MonkeyPatch, resume: bool, map_first: bool,
+) -> None:
+    behavior = runtime_bot.dungeon_behavior
+    state = runtime_bot.game_state
+    state.map.map_id = 87296515
+    boss = ActorPositionInformation(actor_id=-20000)
+    boss.disposition.cell_id = 511
+    boss.actor_information.role_play_actor.monster_group_actor.identification.main_creature.gid = 252
+    state.entity.actor_by_id[boss.actor_id] = boss
+    attack, dialog, finished = Mock(), Mock(), Mock()
+    monkeypatch.setattr(behavior.attacker_behavior, "start", attack)
+    monkeypatch.setattr(behavior.npc_dialog_behavior, "start", dialog)
+    try:
+        if resume:
+            behavior.start(callback=finished, parent=None, preferences=DungeonSettings(dungeon_id=21))
+        else:
+            behavior.start(callback=finished, parent=None, dungeon_info=BLACKSMITH_DUNGEON)
+        attack.assert_called_once()
+        dialog.assert_not_called()
+        assert attack.call_args.kwargs["count_fight_limit"] == 1
+        del state.entity.actor_by_id[boss.actor_id]
+        state.map.map_id = 87297539
+        attack.call_args.kwargs["callback"](None, count_fighted_on_map=1)
+        dialog.assert_called_once()
+        assert dialog.call_args.kwargs["npc_dialog_info"] is BLACKSMITH_DUNGEON.exit_npc_info
+        assert behavior.activity_performed
+        finished.assert_not_called()
+        if map_first:
+            state.map.map_id = 88086786
+            behavior.event_manager.process_msg(MapComplementaryInformationEvent(map_id=88086786))
+            finished.assert_not_called()
+            dialog.call_args.kwargs["callback"](None)
+        else:
+            dialog.call_args.kwargs["callback"](None)
+            finished.assert_not_called()
+            state.map.map_id = 88086786
+            behavior.event_manager.process_msg(MapComplementaryInformationEvent(map_id=88086786))
+        finished.assert_called_once_with(None)
+    finally:
+        behavior.stop()
+
+
+def test_blacksmith_resumes_in_duncans_room_without_another_key(
+    runtime_bot: Bot, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    behavior = runtime_bot.dungeon_behavior
+    runtime_bot.game_state.map.map_id = 87297539
+    runtime_bot.game_state.inventory.objects_by_uid.clear()
+    attack, dialog, travel, finished = Mock(), Mock(), Mock(), Mock()
+    monkeypatch.setattr(behavior.attacker_behavior, "start", attack)
+    monkeypatch.setattr(behavior.npc_dialog_behavior, "start", dialog)
+    monkeypatch.setattr(behavior.auto_trip_smart_behavior, "start", travel)
+    try:
+        behavior.start(callback=finished, parent=None, preferences=DungeonSettings(dungeon_id=21))
+        dialog.assert_called_once()
+        attack.assert_not_called()
+        travel.assert_not_called()
+        finished.assert_not_called()
+    finally:
+        behavior.stop()
 
 
 @pytest.mark.parametrize("sequence", [False, True])

@@ -136,4 +136,6 @@ class InventoryFrame(Frame):
             self.inventory_signals.updated_object_item.emit(msg.object)
 
     def on_object_movement_event(self, msg: ObjectMovementEvent):
-        self.game_state.inventory.objects_by_uid[msg.object_uid].position = msg.position
+        item = self.game_state.inventory.objects_by_uid[msg.object_uid]
+        item.position = msg.position
+        self.game_state.map.invalidate_equipment_transition_bans(item.item.gid)

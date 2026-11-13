@@ -13,6 +13,7 @@ from DBDofusUnity.dofus_unity_reader.game_constants.inventory_position import (
     CharacterInventoryPositionEnum,
 )
 from src.core.behaviors.behavior import Behavior
+from src.core.engine.dungeons.dungeon_info import get_dungeon_info_for_map_id
 from src.core.engine.items.equipment import equipment_score, get_equipment_positions, roll_score
 from src.core.engine.items.item import get_equipment_on_position
 from src.core.engine.movements.world.criterions.group_item_criterion import GroupItemCriterion
@@ -37,16 +38,23 @@ class AutoEquipmentFromInventoryBehavior(Behavior):
         self.choose_loadout()
 
     def choose_loadout(self) -> None:
+        equipped_by_pos = self._get_equipped_by_position()
+        dungeon = get_dungeon_info_for_map_id(self.game_state.map.map_id)
+        protected_positions = {
+            position
+            for position, item in equipped_by_pos.items()
+            if dungeon is not None and item.item.gid in dungeon.protected_equipment_gids
+        }
         inventory_items = [
             item
             for item in self.game_state.inventory.objects_by_uid.values()
             if item.position == CharacterInventoryPositionEnum.InventoryPositionNotEquiped
+            and not protected_positions.intersection(get_equipment_positions(item.item.gid))
             and self._is_equipable(item)
         ]
         if not inventory_items:
             return self.finish()
 
-        equipped_by_pos = self._get_equipped_by_position()
         best_equipped_by_pos = self._best_loadout(equipped_by_pos, inventory_items)
         current_score = equipment_score(
             equipped_by_pos.values(), self.game_state.fight.primary_and_second_elem[0]

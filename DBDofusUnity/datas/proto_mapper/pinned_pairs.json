@@ -3,6 +3,14 @@
     {
       "obf": "jny",
       "non_obf": "Com.Ankama.Dofus.Server.Game.Protocol.Gamemap.MapMovementConfirmRequest"
+    },
+    {
+      "obf": "iqn",
+      "non_obf": "Com.Ankama.Dofus.Server.Game.Protocol.Inventory.ObjectMovementEvent",
+      "field_mapping_by_obf": {
+        "fsmv": "object_uid",
+        "fsmx": "position"
+      }
     }
   ]
 }

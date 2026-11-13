@@ -1,4 +1,5 @@
 import dataclasses
+import re
 from dataclasses import dataclass, field
 
 from DBDofusUnity.dofus_unity_reader.data_center.data_reader import DataReader
@@ -37,6 +38,17 @@ class MapState(State):
         self.banned_edge_transitions.clear()
         self.is_waiting_for_map_popup_dialog_leave = False
         self._anomaly_info_requested = False
+
+    def invalidate_equipment_transition_bans(self, item_gid: int) -> None:
+        # Equipping an access item can reopen a gate that failed earlier in the session.
+        criterion = re.compile(rf"\bPOE{item_gid}(?=[,)&|]|$)")
+        restored = {
+            ban for ban in self.banned_edge_transitions if criterion.search(ban.transition.m_criterion)
+        }
+        self.banned_edge_transitions.difference_update(restored)
+        self.excluded_element_ids.difference_update(
+            ban.transition.m_id for ban in restored
+        )
 
     def discard_map_stay_banned_transitions(self) -> None:
         self.banned_edge_transitions.difference_update(

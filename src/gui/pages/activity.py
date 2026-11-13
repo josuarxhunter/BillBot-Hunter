@@ -47,6 +47,10 @@ class ActivityPage(QWidget):
         self._quarantined: list[QuarantineRow] | None = None
         self._selected_target: tuple[str, str] | None = None
         self._quarantine_refresh_pending = False
+        self._activity_refresh_timer = QTimer(self)
+        self._activity_refresh_timer.setSingleShot(True)
+        self._activity_refresh_timer.setInterval(100)
+        self._activity_refresh_timer.timeout.connect(self._refresh_activity)
         self.setObjectName("activity")
 
         layout = QVBoxLayout(self)
@@ -126,6 +130,7 @@ class ActivityPage(QWidget):
         table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
+        table.setWordWrap(False)
         table.scrollDelagate.verticalSmoothScroll.setSmoothMode(SmoothMode.NO_SMOOTH)
         table.scrollDelagate.horizonSmoothScroll.setSmoothMode(SmoothMode.NO_SMOOTH)
         table.scrollDelagate.vScrollBar.setScrollAnimation(0)
@@ -135,7 +140,9 @@ class ActivityPage(QWidget):
         assert vertical_header is not None
         assert horizontal_header is not None
         vertical_header.setVisible(False)
-        horizontal_header.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
+        # Resizing to contents on every inserted cell stalls the GUI on a full history.
+        horizontal_header.setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
+        horizontal_header.setDefaultSectionSize(180)
         horizontal_header.setStretchLastSection(True)
         return table
 
@@ -151,8 +158,8 @@ class ActivityPage(QWidget):
         self._refresh_quarantined()
 
     def _on_activity_entry_added(self) -> None:
-        if self.isVisible():
-            self._refresh_activity()
+        if self.isVisible() and not self._activity_refresh_timer.isActive():
+            self._activity_refresh_timer.start()
 
     def _on_quarantine_changed(self) -> None:
         if self.isVisible():
@@ -177,6 +184,13 @@ class ActivityPage(QWidget):
             and entries[:-1] == previous_entries
         ):
             self._append_activity_entry(entries[-1])
+            return
+        if (
+            previous_entries
+            and len(entries) == len(previous_entries)
+            and entries[:-1] == previous_entries[1:]
+        ):
+            self._append_activity_entry(entries[-1], expired_entry=previous_entries[0])
             return
         self._render_activity()
 
@@ -205,8 +219,10 @@ class ActivityPage(QWidget):
         self.activity_table.setUpdatesEnabled(True)
         QTimer.singleShot(0, self.activity_table.scrollToBottom)
 
-    def _append_activity_entry(self, entry: UserActivityEntry) -> None:
+    def _append_activity_entry(self, entry: UserActivityEntry, expired_entry: UserActivityEntry | None = None) -> None:
         selected_login = cast(str | None, self.login_filter.currentData())
+        if expired_entry is not None and (selected_login is None or expired_entry.login == selected_login):
+            self.activity_table.removeRow(0)
         if selected_login is not None and entry.login != selected_login:
             return
         row = self.activity_table.rowCount()

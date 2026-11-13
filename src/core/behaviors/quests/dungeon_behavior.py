@@ -1,11 +1,16 @@
 from dataclasses import dataclass, field
 from enum import StrEnum
 from functools import partial
+from collections.abc import Callable
 from time import monotonic
 
 from DBDofusUnity.datas.protos.non_obf.game.gamemap_pb2 import (
     MapComplementaryInformationEvent,
+    MapObstacle,
+    MapObstacleUpdateEvent,
 )
+from DBDofusUnity.dofus_unity_reader.grid.map_point import MapPoint
+from src.core.behaviors.movements.map_move_behavior import MapMoveError
 from src.core.behaviors.behavior import Behavior
 from src.controller.settings import SettingsService
 from src.core.config import DungeonSettings
@@ -30,6 +35,7 @@ class DungeonError(StrEnum):
     PARTY_REQUIRED = "This dungeon requires two coordinated characters and is not automated yet."
     NO_PROGRESS = "The dungeon stopped making progress."
     ENTRANCE_UNREACHABLE = "The dungeon entrance is unreachable. Check its access requirements or start beside the entrance NPC."
+    ACCESS_UNAVAILABLE = "The dungeon transport is unavailable. Check island opening, access quests and travel fare."
 
 
 @dataclass
@@ -51,6 +57,9 @@ class DungeonBehavior(Behavior):
     _room_map_id: int | None = field(init=False, default=None)
     _room_started_at: float = field(init=False, default=0)
     _traversal_failures: int = field(init=False, default=0)
+    _access_attempted: bool = field(init=False, default=False)
+    _access_dialog_finished: bool = field(init=False, default=False)
+    _access_map_received: bool = field(init=False, default=False)
 
     @property
     def activity_performed(self) -> bool:
@@ -139,11 +148,17 @@ class DungeonBehavior(Behavior):
 
     def start_dungeon(self, dungeon_info: DungeonInfo) -> None:
         self._current_dungeon = dungeon_info
+        self._access_attempted = False
         self._room_map_id = None
         self._traversal_failures = 0
         self.logger.info("Starting dungeon %s; %s remaining", dungeon_info.name, len(self._pending_dungeons))
         if self.game_state.map.map_id in dungeon_info.interior_map_ids:
             return self.on_new_map(dungeon_info)
+        if dungeon_info.entrance_plate is not None and self.game_state.map.map_id != dungeon_info.dungeon.entranceMapId:
+            return self.auto_trip_smart_behavior.start(
+                map_ids={dungeon_info.entrance_plate.map_id},
+                callback=partial(self.on_plate_map_arrived, dungeon_info=dungeon_info), parent=self,
+            )
 
         self.auto_trip_smart_behavior.start(
             map_ids={dungeon_info.entrance_npc_info.npc_map_id},
@@ -154,11 +169,81 @@ class DungeonBehavior(Behavior):
             parent=self,
         )
 
+    def move_to_plate_cell(self, cell_id: int, callback: Callable[[str | None], None]) -> None:
+        target = MapPoint.from_cell_id(cell_id)
+        path = self.traversal_behavior.path_finding.find_path(
+            self.game_state.get_map_movement_context(), self.game_state.map.map_point, {target},
+        )
+        if path.end != target:
+            return self.finish(DungeonError.ENTRANCE_UNREACHABLE)
+        self.traversal_behavior.map_move_behavior.start(move_path=path, callback=callback, parent=self)
+
+    def on_plate_map_arrived(self, error_code: str | None, dungeon_info: DungeonInfo) -> None:
+        if error_code is not None:
+            return self.finish(error_code)
+        plate = dungeon_info.entrance_plate
+        assert plate is not None
+        if self.game_state.map.map_id != plate.map_id:
+            return self.finish(DungeonError.UNEXPECTED_MAP)
+        if self.game_state.map.map_point.cell_id == plate.cell_id:
+            return self.move_to_plate_cell(
+                plate.reset_cell_id, partial(self.on_plate_reset, dungeon_info=dungeon_info),
+            )
+        self.on_plate_reset(None, dungeon_info)
+
+    def on_plate_reset(self, error_code: str | None, dungeon_info: DungeonInfo) -> None:
+        if error_code is not None:
+            return self.finish(error_code)
+        assert dungeon_info.entrance_plate is not None
+        self.move_to_plate_cell(
+            dungeon_info.entrance_plate.cell_id, partial(self.on_plate_reached, dungeon_info=dungeon_info),
+        )
+
+    def on_plate_reached(self, error_code: str | None, dungeon_info: DungeonInfo) -> None:
+        if error_code is not None:
+            return self.finish(error_code)
+        plate = dungeon_info.entrance_plate
+        assert plate is not None
+        if self.game_state.map.map_point.cell_id != plate.cell_id:
+            return self.finish(MapMoveError.CANCELED_MOVEMENT)
+        self.event_manager.on(
+            MapObstacleUpdateEvent, partial(self.on_plate_obstacles_updated, dungeon_info=dungeon_info),
+            originator=self, timeout=5, on_timeout=lambda: self.finish(DungeonError.ACCESS_UNAVAILABLE),
+        )
+        self.on_plate_obstacles_updated(MapObstacleUpdateEvent(), dungeon_info)
+
+    def on_plate_obstacles_updated(self, msg: MapObstacleUpdateEvent, dungeon_info: DungeonInfo) -> None:
+        del msg
+        plate = dungeon_info.entrance_plate
+        assert plate is not None
+        obstacle = self.game_state.entity.obstacle_on_cell_id.get(plate.passage_cell_id)
+        if obstacle is None or obstacle.state != MapObstacle.OBSTACLE_OPENED:
+            return
+        self.event_manager.clear_listener_by_origin_and_type(MapObstacleUpdateEvent, self)
+        self.event_manager.on(
+            MapComplementaryInformationEvent, partial(self.on_crypt_loaded, dungeon_info=dungeon_info),
+            originator=self, once=True, timeout=15, on_timeout=lambda: self.finish(DungeonError.NO_PROGRESS),
+        )
+        self.move_to_plate_cell(plate.passage_cell_id, self.on_crypt_movement_finished)
+
+    def on_crypt_movement_finished(self, error_code: str | None) -> None:
+        if error_code is not None:
+            self.finish(error_code)
+
+    def on_crypt_loaded(self, msg: MapComplementaryInformationEvent, dungeon_info: DungeonInfo) -> None:
+        if msg.map_id != dungeon_info.dungeon.entranceMapId:
+            return self.finish(DungeonError.UNEXPECTED_MAP)
+        self.traversal_behavior.map_move_behavior.stop()
+        self.on_auto_trip_smart_behavior_to_entrance_finished(None, dungeon_info)
+
     def on_auto_trip_smart_behavior_to_entrance_finished(
         self, error_code: str | None, dungeon_info: DungeonInfo
     ) -> None:
         if error_code is not None:
             if error_code == AutoTripErrorCode.PATH_NOT_FOUND:
+                if dungeon_info.access_npc_info is not None and not self._access_attempted:
+                    self._access_attempted = True
+                    return self.travel_to_access_npc(dungeon_info)
                 self.logger.warning("Cannot reach %s: %s", dungeon_info.name, dungeon_info.access_note)
                 return self.finish(DungeonError.ENTRANCE_UNREACHABLE)
             return self.finish(error_code)
@@ -187,6 +272,65 @@ class DungeonBehavior(Behavior):
             callback=partial(self.on_npc_dialog_behavior_finished, dungeon_info=dungeon_info),
             parent=self,
         )
+
+    def travel_to_access_npc(self, dungeon_info: DungeonInfo) -> None:
+        assert dungeon_info.access_npc_info is not None
+        if self.game_state.inventory.kamas < dungeon_info.access_cost:
+            return self.finish(DungeonError.ACCESS_UNAVAILABLE)
+        self.auto_trip_smart_behavior.start(
+            map_ids={dungeon_info.access_npc_info.npc_map_id},
+            callback=partial(self.on_access_trip_finished, dungeon_info=dungeon_info),
+            parent=self,
+        )
+
+    def on_access_trip_finished(self, error_code: str | None, dungeon_info: DungeonInfo) -> None:
+        if error_code is not None:
+            return self.finish(error_code)
+        assert dungeon_info.access_npc_info is not None
+        if self.game_state.map.map_id != dungeon_info.access_npc_info.npc_map_id:
+            return self.finish(DungeonError.UNEXPECTED_MAP)
+        if self.game_state.inventory.kamas < dungeon_info.access_cost:
+            return self.finish(DungeonError.ACCESS_UNAVAILABLE)
+        # Seasonal NPCs can be absent even though their map is reachable.
+        try:
+            self.game_state.entity.resolve_npc_id(dungeon_info.access_npc_info)
+        except ValueError:
+            return self.finish(DungeonError.ACCESS_UNAVAILABLE)
+        self._access_dialog_finished = False
+        self._access_map_received = False
+        self.event_manager.on(
+            MapComplementaryInformationEvent,
+            partial(self.on_access_map_loaded, dungeon_info=dungeon_info),
+            originator=self, once=True, timeout=60,
+            on_timeout=lambda: self.finish(DungeonError.ACCESS_UNAVAILABLE),
+        )
+        self.npc_dialog_behavior.start(
+            npc_dialog_info=dungeon_info.access_npc_info,
+            turn_variants=[dungeon_info.access_turns],
+            callback=partial(self.on_access_dialog_finished, dungeon_info=dungeon_info),
+            parent=self,
+        )
+
+    def on_access_dialog_finished(self, error_code: str | None, dungeon_info: DungeonInfo) -> None:
+        if error_code is not None:
+            return self.finish(error_code)
+        self._access_dialog_finished = True
+        self.continue_after_access(dungeon_info)
+
+    def on_access_map_loaded(self, msg: MapComplementaryInformationEvent, dungeon_info: DungeonInfo) -> None:
+        assert dungeon_info.access_npc_info is not None
+        if msg.map_id == dungeon_info.access_npc_info.npc_map_id:
+            return self.finish(DungeonError.ACCESS_UNAVAILABLE)
+        self._access_map_received = True
+        self.continue_after_access(dungeon_info)
+
+    def continue_after_access(self, dungeon_info: DungeonInfo) -> None:
+        if self._access_dialog_finished and self._access_map_received:
+            self.auto_trip_smart_behavior.start(
+                map_ids={dungeon_info.entrance_npc_info.npc_map_id},
+                callback=partial(self.on_auto_trip_smart_behavior_to_entrance_finished, dungeon_info=dungeon_info),
+                parent=self,
+            )
 
     def on_npc_dialog_behavior_finished(self, error_code: str | None, dungeon_info: DungeonInfo) -> None:
         if error_code is not None:

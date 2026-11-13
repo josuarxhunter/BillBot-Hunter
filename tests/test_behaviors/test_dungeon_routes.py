@@ -139,3 +139,34 @@ def test_scaraleaf_trip_uses_the_nearby_zaap_from_astrub_and_its_interiors(
         walk.assert_not_called()
     finally:
         travel.stop()
+
+
+@pytest.mark.parametrize("knows_zaap", [False, True])
+def test_repeating_kankreblath_walks_back_without_a_zaap_detour(
+    at_astrub_zaap: Bot, monkeypatch: pytest.MonkeyPatch, knows_zaap: bool,
+) -> None:
+    bot = at_astrub_zaap
+    state = bot.game_state
+    state.map.map_id = 103549440
+    source = next(iter(WorldGraphReader().get_vertexes(state.map.map_id)))
+    monkeypatch.setattr(type(state.map), "curr_vertex", property(lambda _map: source))
+    state.player.waypoint_map_ids = [191105026] if knows_zaap else []
+    state.inventory.kamas = 10000
+    state.inventory.objects_by_uid[1] = ObjectItemInventory(
+        item=ObjectItem(uid=1, gid=15990, quantity=1),
+        position=CharacterInventoryPositionEnum.AccessoryPositionWeapon,
+    )
+    state.configurable_auto = None
+    smart = bot.dungeon_behavior.auto_trip_smart_behavior
+    travel = smart.auto_trip_explorator_behavior.auto_trip_zaap_behavior
+    walk, teleport = Mock(), Mock()
+    monkeypatch.setattr(travel.auto_trip_behavior, "start", walk)
+    monkeypatch.setattr(travel.waypoint_behavior, "start", teleport)
+    target = {KANKREBLATH_DUNGEON.entrance_npc_info.npc_map_id}
+    try:
+        smart.start(callback=None, parent=None, map_ids=target)
+        walk.assert_called_once()
+        assert walk.call_args.kwargs["map_ids"] == target
+        teleport.assert_not_called()
+    finally:
+        smart.stop()

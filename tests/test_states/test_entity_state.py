@@ -29,10 +29,31 @@ from DBDofusUnity.datas.protos.non_obf.game.gamemap_pb2 import (
 
 from src.core.bot.bot import Bot
 from src.core.states.entity_state import FightActor
+from src.core.engine.movements.map.map_data_adapter import DataMapProvider
+from DBDofusUnity.dofus_unity_reader.grid.map_point import MapPoint
 from tests.fixtures.entities import make_actor, make_fighter
 
 
 class TestEntityState:
+    def test_tomb_obstacle_deltas_preserve_open_cells_and_allow_walking(self, runtime_bot: Bot) -> None:
+        state = runtime_bot.game_state
+        state.map.map_id = 82314497
+        opened = [MapObstacle(cell_id=cell, state=MapObstacle.OBSTACLE_OPENED) for cell in (259, 245, 232, 273, 260, 246)]
+        runtime_bot.event_manager.process_msg(MapObstacleUpdateEvent(obstacles=opened))
+        runtime_bot.event_manager.process_msg(MapObstacleUpdateEvent(obstacles=[
+            MapObstacle(cell_id=218, state=MapObstacle.OBSTACLE_CLOSED),
+        ]))
+        provider = DataMapProvider()
+        provider.set_context(state.get_map_movement_context())
+        assert all(provider.can_mov_to_mp(MapPoint.from_cell_id(obstacle.cell_id)) for obstacle in opened)
+        runtime_bot.event_manager.process_msg(MapObstacleUpdateEvent(obstacles=[
+            MapObstacle(cell_id=259, state=MapObstacle.OBSTACLE_CLOSED),
+        ]))
+        assert not provider.can_mov_to_mp(MapPoint.from_cell_id(259))
+        assert provider.can_mov_to_mp(MapPoint.from_cell_id(245))
+        runtime_bot.event_manager.process_msg(MapComplementaryInformationEvent(map_id=82314753))
+        assert not state.entity.obstacle_on_cell_id
+
     def test_map_complementary_information_event_sets_actors(
         self,
         runtime_bot: Bot,
